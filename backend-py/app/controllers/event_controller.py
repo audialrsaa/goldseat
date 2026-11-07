@@ -82,7 +82,6 @@ def create_event():
         "draft"
     )
 
-
     # =====================================================
     # VALIDASI FIELD WAJIB
     # =====================================================
@@ -123,7 +122,6 @@ def create_event():
             "message": "Jam mulai event wajib diisi"
         }), 400
 
-
     # =====================================================
     # CEK ARTIST
     # =====================================================
@@ -138,7 +136,6 @@ def create_event():
             "status": "error",
             "message": "Artist tidak ditemukan"
         }), 404
-
 
     # =====================================================
     # CEK VENUE
@@ -155,7 +152,6 @@ def create_event():
             "message": "Venue tidak ditemukan"
         }), 404
 
-
     # =====================================================
     # CEK CATEGORY
     # =====================================================
@@ -170,7 +166,6 @@ def create_event():
             "status": "error",
             "message": "Kategori event tidak ditemukan"
         }), 404
-
 
     # =====================================================
     # VALIDASI PUBLISH STATUS
@@ -188,7 +183,6 @@ def create_event():
             "message": "Publish status tidak valid"
         }), 400
 
-
     # =====================================================
     # VALIDASI TANGGAL
     # =====================================================
@@ -205,9 +199,8 @@ def create_event():
             "message": "Format event_date harus YYYY-MM-DD"
         }), 400
 
-
     # =====================================================
-    # VALIDASI JAM
+    # VALIDASI JAM MULAI
     # =====================================================
 
     try:
@@ -229,7 +222,6 @@ def create_event():
                 "status": "error",
                 "message": "Format start_time harus HH:MM atau HH:MM:SS"
             }), 400
-
 
     # =====================================================
     # END TIME
@@ -257,7 +249,6 @@ def create_event():
                     "message": "Format end_time harus HH:MM atau HH:MM:SS"
                 }), 400
 
-
     # =====================================================
     # MIN AGE
     # =====================================================
@@ -276,7 +267,6 @@ def create_event():
     else:
         min_age = None
 
-
     # =====================================================
     # GENERATE SLUG
     # =====================================================
@@ -294,7 +284,6 @@ def create_event():
             "message": "Slug event sudah digunakan"
         }), 409
 
-
     # =====================================================
     # AMBIL USER LOGIN
     # =====================================================
@@ -306,7 +295,6 @@ def create_event():
             "status": "error",
             "message": "User tidak terautentikasi"
         }), 401
-
 
     # =====================================================
     # UPLOAD POSTER
@@ -321,7 +309,6 @@ def create_event():
             "event-posters"
         )
 
-
     # =====================================================
     # UPLOAD BANNER
     # =====================================================
@@ -334,7 +321,6 @@ def create_event():
             banner,
             "event-banners"
         )
-
 
     # =====================================================
     # CREATE EVENT
@@ -370,7 +356,6 @@ def create_event():
     db.session.add(event)
     db.session.commit()
 
-
     # =====================================================
     # RESPONSE
     # =====================================================
@@ -399,9 +384,7 @@ def update_event(id):
             "message": "Event tidak ditemukan"
         }), 404
 
-
     form = request.form
-
 
     # =====================================================
     # ARTIST
@@ -424,7 +407,6 @@ def update_event(id):
 
         event.artist_id = artist_id
 
-
     # =====================================================
     # VENUE
     # =====================================================
@@ -445,7 +427,6 @@ def update_event(id):
             }), 404
 
         event.venue_id = venue_id
-
 
     # =====================================================
     # CATEGORY
@@ -468,7 +449,6 @@ def update_event(id):
 
         event.category_id = category_id
 
-
     # =====================================================
     # TITLE + SLUG
     # =====================================================
@@ -487,14 +467,12 @@ def update_event(id):
         ).first()
 
         if existing_slug:
-
             return jsonify({
                 "status": "error",
                 "message": "Slug event sudah digunakan"
             }), 409
 
         event.slug = new_slug
-
 
     # =====================================================
     # TEXT FIELD
@@ -511,7 +489,6 @@ def update_event(id):
 
     if "terms_url" in form:
         event.terms_url = form.get("terms_url")
-
 
     # =====================================================
     # EVENT DATE
@@ -532,7 +509,6 @@ def update_event(id):
                 "status": "error",
                 "message": "Format event_date harus YYYY-MM-DD"
             }), 400
-
 
     # =====================================================
     # START TIME
@@ -561,7 +537,6 @@ def update_event(id):
                     "status": "error",
                     "message": "Format start_time tidak valid"
                 }), 400
-
 
     # =====================================================
     # END TIME
@@ -596,7 +571,6 @@ def update_event(id):
         else:
             event.end_time = None
 
-
     # =====================================================
     # MIN AGE
     # =====================================================
@@ -618,7 +592,6 @@ def update_event(id):
 
         else:
             event.min_age = None
-
 
     # =====================================================
     # PUBLISH STATUS
@@ -642,7 +615,6 @@ def update_event(id):
 
         event.publish_status = publish_status
 
-
     # =====================================================
     # UPLOAD POSTER
     # =====================================================
@@ -655,7 +627,6 @@ def update_event(id):
             poster,
             "event-posters"
         )
-
 
     # =====================================================
     # UPLOAD BANNER
@@ -670,19 +641,72 @@ def update_event(id):
             "event-banners"
         )
 
-
     # =====================================================
     # SAVE
     # =====================================================
 
     db.session.commit()
 
-
     return jsonify({
         "status": "success",
         "message": "Event berhasil diupdate",
         "data": event.to_dict()
     }), 200
+
+
+# =========================================================
+# PUBLISH EVENT
+# =========================================================
+
+
+# =========================================================
+# CHANGE EVENT PUBLISH STATUS
+# =========================================================
+
+def publish_event(id):
+    event = db.session.get(Event, id)
+
+    if not event:
+        return jsonify({
+            "status": "error",
+            "message": "Event tidak ditemukan"
+        }), 404
+
+    data = request.get_json(silent=True) or {}
+    publish_status = data.get("publish_status")
+
+    allowed_status = [
+        "draft",
+        "published",
+        "unpublished",
+    ]
+
+    if publish_status not in allowed_status:
+        return jsonify({
+            "status": "error",
+            "message": (
+                "Publish status harus draft, published, "
+                "atau unpublished"
+            )
+        }), 400
+
+    try:
+        event.publish_status = publish_status
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": "Status publikasi event berhasil diubah",
+            "data": event.to_dict()
+        }), 200
+
+    except Exception:
+        db.session.rollback()
+
+        return jsonify({
+            "status": "error",
+            "message": "Gagal mengubah status publikasi event"
+        }), 500
 
 
 # =========================================================
@@ -702,10 +726,8 @@ def delete_event(id):
             "message": "Event tidak ditemukan"
         }), 404
 
-
     db.session.delete(event)
     db.session.commit()
-
 
     return jsonify({
         "status": "success",

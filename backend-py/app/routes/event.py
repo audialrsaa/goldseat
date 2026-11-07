@@ -1,3 +1,4 @@
+
 from flask import Blueprint
 
 from app.controllers.event_controller import (
@@ -5,17 +6,15 @@ from app.controllers.event_controller import (
     get_event,
     create_event,
     update_event,
-    delete_event
+    delete_event,
+    publish_event,
 )
 
 from app.middleware.auth_middleware import jwt_auth_required
 from app.middleware.role_middleware import role_required
 
 
-event_bp = Blueprint(
-    "event",
-    __name__
-)
+event_bp = Blueprint("event", __name__)
 
 
 # =========================================================
@@ -56,6 +55,17 @@ def store():
 @role_required("super_admin", "event_manager")
 def update(id):
     return update_event(id)
+
+
+# =========================================================
+# CHANGE EVENT PUBLISH STATUS
+# =========================================================
+
+@event_bp.route("/<int:id>/publish", methods=["PATCH"])
+@jwt_auth_required
+@role_required("super_admin", "event_manager")
+def change_publish_status(id):
+    return publish_event(id)
 
 
 # =========================================================

@@ -18,7 +18,6 @@ from app.models.review import Review
 from app.models.faq import Faq
 from app.models.refund import Refund
 from app.models.ticket_transfer import TicketTransfer
-from app.models.waitlist import Waitlist
 from app.models.audit_log import AuditLog
 from app.models.banner import Banner
 from app.models.setting import Setting

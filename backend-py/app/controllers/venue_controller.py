@@ -6,47 +6,110 @@ from app.services.storage_service import upload_image
 
 
 # ==========================
+# HELPER
+# ==========================
+def parse_venue_form(form):
+    """
+    Ambil & bersihkan field dari request.form.
+    String kosong diubah jadi None supaya gak bikin error
+    pas di-assign ke kolom Numeric/Integer di DB.
+    """
+    name = form.get("name")
+    address = form.get("address") or None
+    city = form.get("city") or None
+    maps_url = form.get("maps_url") or None
+
+    latitude_raw = form.get("latitude") or None
+    longitude_raw = form.get("longitude") or None
+    capacity_raw = form.get("capacity") or None
+
+    errors = {}
+
+    latitude = None
+    if latitude_raw is not None:
+        try:
+            latitude = float(latitude_raw)
+        except ValueError:
+            errors["latitude"] = "Latitude harus berupa angka"
+
+    longitude = None
+    if longitude_raw is not None:
+        try:
+            longitude = float(longitude_raw)
+        except ValueError:
+            errors["longitude"] = "Longitude harus berupa angka"
+
+    capacity = None
+    if capacity_raw is not None:
+        try:
+            capacity = int(capacity_raw)
+        except ValueError:
+            errors["capacity"] = "Kapasitas harus berupa angka bulat"
+
+    data = {
+        "name": name,
+        "address": address,
+        "city": city,
+        "maps_url": maps_url,
+        "latitude": latitude,
+        "longitude": longitude,
+        "capacity": capacity,
+    }
+
+    return data, errors
+
+
+# ==========================
 # CREATE
 # ==========================
 def create_venue():
 
-    name = request.form.get("name")
-    address = request.form.get("address")
-    city = request.form.get("city")
-    maps_url = request.form.get("maps_url")
-    latitude = request.form.get("latitude")
-    longitude = request.form.get("longitude")
-    capacity = request.form.get("capacity")
+    data, errors = parse_venue_form(request.form)
 
-    photo = request.files.get("photo")
+    if not data["name"]:
+        errors["name"] = "Nama venue wajib diisi"
 
-    if not name:
+    if errors:
         return jsonify({
             "status": "error",
-            "message": "Nama venue wajib diisi"
+            "message": "Data venue tidak valid",
+            "errors": errors
         }), 400
 
+    photo = request.files.get("photo")
     photo_url = None
 
     if photo:
-        photo_url = upload_image(
-            photo,
-            "venues"
-        )
+        try:
+            photo_url = upload_image(photo, "venues")
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": "Gagal mengunggah foto venue",
+                "error": str(e)
+            }), 500
 
     venue = Venue(
-        name=name,
-        address=address,
-        city=city,
+        name=data["name"],
+        address=data["address"],
+        city=data["city"],
         photo=photo_url,
-        maps_url=maps_url,
-        latitude=latitude,
-        longitude=longitude,
-        capacity=capacity
+        maps_url=data["maps_url"],
+        latitude=data["latitude"],
+        longitude=data["longitude"],
+        capacity=data["capacity"],
     )
 
-    db.session.add(venue)
-    db.session.commit()
+    try:
+        db.session.add(venue)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": "Gagal menyimpan venue ke database",
+            "error": str(e)
+        }), 500
 
     return jsonify({
         "status": "success",
@@ -105,50 +168,59 @@ def update_venue(id):
             "message": "Venue tidak ditemukan"
         }), 404
 
-    venue.name = request.form.get(
-        "name",
-        venue.name
-    )
+    data, errors = parse_venue_form(request.form)
 
-    venue.address = request.form.get(
-        "address",
-        venue.address
-    )
+    if errors:
+        return jsonify({
+            "status": "error",
+            "message": "Data venue tidak valid",
+            "errors": errors
+        }), 400
 
-    venue.city = request.form.get(
-        "city",
-        venue.city
-    )
+    # hanya update field yang memang dikirim (biar gak nimpa
+    # nilai lama dengan None kalau field-nya sengaja gak dikirim)
+    if request.form.get("name") is not None:
+        venue.name = data["name"] or venue.name
 
-    venue.maps_url = request.form.get(
-        "maps_url",
-        venue.maps_url
-    )
+    if "address" in request.form:
+        venue.address = data["address"]
 
-    venue.latitude = request.form.get(
-        "latitude",
-        venue.latitude
-    )
+    if "city" in request.form:
+        venue.city = data["city"]
 
-    venue.longitude = request.form.get(
-        "longitude",
-        venue.longitude
-    )
+    if "maps_url" in request.form:
+        venue.maps_url = data["maps_url"]
 
-    venue.capacity = request.form.get(
-        "capacity",
-        venue.capacity
-    )
+    if "latitude" in request.form:
+        venue.latitude = data["latitude"]
+
+    if "longitude" in request.form:
+        venue.longitude = data["longitude"]
+
+    if "capacity" in request.form:
+        venue.capacity = data["capacity"]
 
     photo = request.files.get("photo")
 
     if photo:
-        venue.photo = upload_image(
-            photo,
-            "venues"
-        )
+        try:
+            venue.photo = upload_image(photo, "venues")
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": "Gagal mengunggah foto venue",
+                "error": str(e)
+            }), 500
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": "Gagal memperbarui venue di database",
+            "error": str(e)
+        }), 500
 
     return jsonify({
         "status": "success",
@@ -170,8 +242,16 @@ def delete_venue(id):
             "message": "Venue tidak ditemukan"
         }), 404
 
-    db.session.delete(venue)
-    db.session.commit()
+    try:
+        db.session.delete(venue)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": "Gagal menghapus venue",
+            "error": str(e)
+        }), 500
 
     return jsonify({
         "status": "success",

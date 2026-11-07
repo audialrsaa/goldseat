@@ -1,4 +1,6 @@
 import hashlib
+import hmac
+
 from datetime import datetime
 
 from flask import (
@@ -12,11 +14,14 @@ from flask_jwt_extended import (
     get_jwt_identity
 )
 
+from sqlalchemy import or_, cast, String
+
 from app.extensions import db
 
 from app.models.order import Order
 from app.models.payment import Payment
 from app.models.ticket import Ticket
+from app.models.user import User
 
 from app.services.payment_service import (
     create_snap_transaction,
@@ -29,320 +34,468 @@ from app.services.ticket_service import (
 
 
 # =========================================================
+# HELPER: GET CURRENT USER
+# =========================================================
+
+def get_authenticated_user():
+    identity = get_jwt_identity()
+
+    try:
+        user_id = int(identity)
+    except (TypeError, ValueError):
+        return None, (
+            jsonify({
+                "status": "error",
+                "message": "User ID pada token tidak valid"
+            }),
+            401
+        )
+
+    user = db.session.get(User, user_id)
+
+    if not user:
+        return None, (
+            jsonify({
+                "status": "error",
+                "message": "User tidak ditemukan"
+            }),
+            401
+        )
+
+    return user, None
+
+
+# =========================================================
+# HELPER: CHECK SUPER ADMIN
+# =========================================================
+
+
+def is_super_admin(user):
+    if not user:
+        return False
+
+    # Cek role langsung dari model User
+    role = str(
+        getattr(user, "role", "") or ""
+    ).strip().lower().replace("-", "_").replace(" ", "_")
+
+    if role in ("super_admin", "superadmin"):
+        return True
+
+    # Cek role melalui relasi jika model menyediakan role_id
+    role_id = getattr(user, "role_id", None)
+
+    if role_id is not None:
+        role_id = str(role_id).strip()
+        if role_id == "1":
+            return True
+
+    return False
+
+
+
+# =========================================================
+# GET ALL PAYMENTS - SUPER ADMIN
+# =========================================================
+
+@jwt_required()
+def get_payments():
+    user, error_response = get_authenticated_user()
+
+    if error_response:
+        return error_response
+
+    current_app.logger.warning(
+        "DEBUG PAYMENT ACCESS | user_id=%s | role=%r | role_id=%r",
+        user.id,
+        getattr(user, "role", None),
+        getattr(user, "role_id", None),
+    )
+
+    if not is_super_admin(user):
+        return jsonify({
+            "status": "error",
+            "message": "Akses khusus Super Admin"
+        }), 403
+
+    try:
+        page = request.args.get("page", default=1, type=int)
+        per_page = request.args.get(
+            "per_page",
+            default=20,
+            type=int
+        )
+
+        if page is None or per_page is None:
+            return jsonify({
+                "status": "error",
+                "message": "Parameter pagination tidak valid"
+            }), 400
+
+        if page < 1 or per_page < 1:
+            return jsonify({
+                "status": "error",
+                "message": "Page dan per_page harus lebih dari 0"
+            }), 400
+
+        per_page = min(per_page, 100)
+
+        status = request.args.get(
+            "status", ""
+        ).strip().lower()
+
+        keyword = request.args.get(
+            "search", ""
+        ).strip()
+
+        valid_statuses = {
+            "pending",
+            "success",
+            "failed",
+            "expired"
+        }
+
+        query = Payment.query
+
+        if status:
+            if status not in valid_statuses:
+                return jsonify({
+                    "status": "error",
+                    "message": "Filter status tidak valid"
+                }), 400
+
+            query = query.filter(
+                Payment.status == status
+            )
+
+        if keyword:
+            pattern = f"%{keyword}%"
+
+            query = query.outerjoin(
+                Order,
+                Payment.order_id == Order.id
+            )
+
+            query = query.outerjoin(
+                User,
+                Order.user_id == User.id
+            )
+
+            query = query.filter(
+                or_(
+                    cast(Payment.id, String).ilike(pattern),
+                    cast(Payment.order_id, String).ilike(pattern),
+                    Payment.transaction_id.ilike(pattern),
+                    Payment.provider.ilike(pattern),
+                    Order.order_number.ilike(pattern),
+                    User.full_name.ilike(pattern),
+                    User.email.ilike(pattern)
+                )
+            )
+
+        total = query.count()
+
+        payments = (
+            query
+            .order_by(
+                Payment.created_at.desc(),
+                Payment.id.desc()
+            )
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+
+        payment_data = []
+
+        for payment in payments:
+            item = payment.to_dict()
+            order = payment.order
+
+            item["order"] = None
+            item["user"] = None
+
+            if order:
+                item["order"] = {
+                    "id": order.id,
+                    "order_number": order.order_number,
+                    "status": order.status,
+                    "total": (
+                        float(order.total)
+                        if order.total is not None
+                        else 0
+                    )
+                }
+
+                customer = order.user
+
+                if customer:
+                    item["user"] = {
+                        "id": customer.id,
+                        "full_name": getattr(
+                            customer,
+                            "full_name",
+                            None
+                        ),
+                        "email": getattr(
+                            customer,
+                            "email",
+                            None
+                        )
+                    }
+
+                # Jangan kirim raw_response ke daftar admin.
+                # Isinya dapat memuat data internal gateway.
+                item.pop("raw_response", None)
+
+            payment_data.append(item)
+
+        return jsonify({
+            "status": "success",
+            "message": "Data pembayaran berhasil diambil",
+            "data": {
+                "payments": payment_data,
+                "pagination": {
+                    "page": page,
+                    "per_page": per_page,
+                    "total": total,
+                    "total_pages": (
+                        (total + per_page - 1) // per_page
+                    )
+                }
+            }
+        }), 200
+
+    except Exception:
+        current_app.logger.exception(
+            "Gagal mengambil daftar pembayaran"
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": "Gagal mengambil daftar pembayaran"
+        }), 500
+
+
+# =========================================================
+# PAYMENT SUMMARY - SUPER ADMIN
+# =========================================================
+
+@jwt_required()
+def get_payment_summary():
+    user, error_response = get_authenticated_user()
+
+    if error_response:
+        return error_response
+
+    if not is_super_admin(user):
+        return jsonify({
+            "status": "error",
+            "message": "Akses khusus Super Admin"
+        }), 403
+
+    try:
+        total = Payment.query.count()
+
+        pending = Payment.query.filter_by(
+            status="pending"
+        ).count()
+
+        success = Payment.query.filter_by(
+            status="success"
+        ).count()
+
+        failed = Payment.query.filter_by(
+            status="failed"
+        ).count()
+
+        expired = Payment.query.filter_by(
+            status="expired"
+        ).count()
+
+        from sqlalchemy import func
+
+        revenue = (
+            db.session.query(
+                func.coalesce(
+                    func.sum(Payment.amount), 0
+                )
+            )
+            .filter(
+                Payment.status == "success"
+            )
+            .scalar()
+        )
+
+        return jsonify({
+            "status": "success",
+            "message": "Ringkasan pembayaran berhasil diambil",
+            "data": {
+                "total_payments": total,
+                "pending": pending,
+                "success": success,
+                "failed": failed,
+                "expired": expired,
+                "total_revenue": float(revenue or 0)
+            }
+        }), 200
+
+    except Exception:
+        current_app.logger.exception(
+            "Gagal mengambil ringkasan pembayaran"
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": "Gagal mengambil ringkasan pembayaran"
+        }), 500
+
+
+# =========================================================
 # CREATE PAYMENT
 # =========================================================
 
 @jwt_required()
 def create_payment():
-
-    # =====================================================
-    # USER DARI JWT
-    # =====================================================
-
-    user_id = get_jwt_identity()
+    identity = get_jwt_identity()
 
     try:
-        user_id = int(user_id)
-    except (
-        TypeError,
-        ValueError
-    ):
+        user_id = int(identity)
+    except (TypeError, ValueError):
         return jsonify({
             "status": "error",
             "message": "User ID pada token tidak valid"
         }), 401
 
-    data = request.get_json() or {}
-
-    order_id = data.get(
-        "order_id"
-    )
-
-    # =====================================================
-    # VALIDASI
-    # =====================================================
+    data = request.get_json(silent=True) or {}
+    order_id = data.get("order_id")
 
     if not order_id:
-
         return jsonify({
             "status": "error",
             "message": "Order ID wajib diisi"
         }), 400
 
-    # =====================================================
-    # CARI ORDER
-    # =====================================================
+    try:
+        order_id = int(order_id)
+    except (TypeError, ValueError):
+        return jsonify({
+            "status": "error",
+            "message": "Order ID tidak valid"
+        }), 400
 
-    order = db.session.get(
-        Order,
-        order_id
-    )
+    order = db.session.get(Order, order_id)
 
     if not order:
-
         return jsonify({
             "status": "error",
             "message": "Order tidak ditemukan"
         }), 404
 
-    # =====================================================
-    # CEK PEMILIK ORDER
-    # =====================================================
-
-    if int(order.user_id) != int(user_id):
-
+    if int(order.user_id) != user_id:
         return jsonify({
             "status": "error",
-            "message": (
-                "Anda tidak memiliki order ini"
-            )
+            "message": "Anda tidak memiliki order ini"
         }), 403
 
-    # =====================================================
-    # CEK STATUS ORDER
-    # =====================================================
-
     if order.status != "pending":
-
         return jsonify({
             "status": "error",
-            "message": (
-                "Order tidak dapat dibayar"
-            ),
+            "message": "Order tidak dapat dibayar",
             "order_status": order.status
         }), 400
 
-    # =====================================================
-    # CEK TOTAL
-    # =====================================================
-
-    if order.total is None:
-
+    if order.total is None or order.total <= 0:
         return jsonify({
             "status": "error",
-            "message": (
-                "Total order belum tersedia"
-            )
+            "message": "Total order harus lebih dari 0"
         }), 400
 
-    if order.total <= 0:
-
-        return jsonify({
-            "status": "error",
-            "message": (
-                "Total order harus lebih dari 0"
-            )
-        }), 400
-
-    # =====================================================
-    # CEK PAYMENT PENDING
-    #
-    # Kalau user klik bayar dua kali,
-    # jangan buat transaksi Midtrans baru.
-    # =====================================================
-
-    existing_payment = Payment.query.filter_by(
-        order_id=order.id,
-        status="pending"
-    ).order_by(
-        Payment.id.desc()
-    ).first()
+    existing_payment = (
+        Payment.query
+        .filter_by(
+            order_id=order.id,
+            provider="midtrans",
+            status="pending"
+        )
+        .order_by(Payment.id.desc())
+        .first()
+    )
 
     if existing_payment:
-
-        raw_response = (
-            existing_payment.raw_response
-            or {}
-        )
+        raw_response = existing_payment.raw_response or {}
 
         return jsonify({
-
             "status": "success",
-
-            "message": (
-                "Payment untuk order ini "
-                "sudah dibuat"
-            ),
-
+            "message": "Payment untuk order ini sudah dibuat",
             "data": {
-
-                "payment":
-                    existing_payment.to_dict(),
-
-                "snap_token":
-                    raw_response.get(
-                        "token"
-                    ),
-
-                "redirect_url":
-                    raw_response.get(
-                        "redirect_url"
-                    )
+                "payment": existing_payment.to_dict(),
+                "snap_token": raw_response.get("token"),
+                "redirect_url": raw_response.get("redirect_url")
             }
-
         }), 200
-
-    # =====================================================
-    # USER
-    # =====================================================
 
     user = order.user
 
     if not user:
-
         return jsonify({
             "status": "error",
-            "message": (
-                "User pemilik order "
-                "tidak ditemukan"
-            )
+            "message": "User pemilik order tidak ditemukan"
         }), 404
 
-    # =====================================================
-    # CUSTOMER MIDTRANS
-    # =====================================================
-
     customer = {
-
-        "first_name": getattr(
-            user,
-            "full_name",
-            None
+        "first_name": (
+            getattr(user, "full_name", None)
+            or getattr(user, "name", None)
+            or "Customer"
         ),
-
         "last_name": "",
-
-        "email": getattr(
-            user,
-            "email",
-            None
-        ),
-
-        "phone": getattr(
-            user,
-            "phone",
-            None
-        )
+        "email": getattr(user, "email", None),
+        "phone": getattr(user, "phone", None)
     }
 
-    # =====================================================
-    # CREATE PAYMENT
-    # =====================================================
-
     payment = Payment(
-
         order_id=order.id,
-
         provider="midtrans",
-
         status="pending",
-
         amount=order.total
     )
 
-    db.session.add(
-        payment
-    )
-
-    db.session.flush()
-
-    # =====================================================
-    # CREATE MIDTRANS SNAP
-    # =====================================================
-
     try:
+        db.session.add(payment)
+        db.session.flush()
 
         transaction = create_snap_transaction(
-
             order_id=order.order_number,
-
             gross_amount=order.total,
-
             customer=customer
         )
 
-    except Exception as e:
-
-        db.session.rollback()
-
-        return jsonify({
-
-            "status": "error",
-
-            "message": (
-                "Gagal membuat "
-                "transaksi Midtrans"
-            ),
-
-            "error": str(e)
-
-        }), 500
-
-    # =====================================================
-    # SIMPAN RESPONSE MIDTRANS
-    # =====================================================
-
-    payment.raw_response = (
-        transaction
-    )
-
-    # Transaction ID biasanya baru tersedia
-    # dari notification Midtrans.
-
-    payment.transaction_id = None
-
-    # =====================================================
-    # COMMIT
-    # =====================================================
-
-    try:
+        payment.raw_response = transaction
+        payment.transaction_id = None
 
         db.session.commit()
 
-    except Exception as e:
-
+    except Exception:
         db.session.rollback()
 
+        current_app.logger.exception(
+            "Gagal membuat transaksi Midtrans"
+        )
+
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Gagal menyimpan payment"
-            ),
-
-            "error": str(e)
-
+            "message": "Gagal membuat transaksi Midtrans"
         }), 500
 
-    # =====================================================
-    # RESPONSE
-    # =====================================================
-
     return jsonify({
-
         "status": "success",
-
-        "message": (
-            "Payment berhasil dibuat"
-        ),
-
+        "message": "Payment berhasil dibuat",
         "data": {
-
-            "payment":
-                payment.to_dict(),
-
-            "snap_token":
-                transaction.get(
-                    "token"
-                ),
-
-            "redirect_url":
-                transaction.get(
-                    "redirect_url"
-                )
+            "payment": payment.to_dict(),
+            "snap_token": transaction.get("token"),
+            "redirect_url": transaction.get("redirect_url")
         }
-
     }), 201
 
 
@@ -351,51 +504,18 @@ def create_payment():
 # =========================================================
 
 def payment_notification():
-
-    # =====================================================
-    # NOTIFICATION DARI MIDTRANS
-    #
-    # Tidak menggunakan JWT.
-    # Karena endpoint ini dipanggil oleh Midtrans.
-    # =====================================================
-
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     if not data:
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Notification kosong"
-            )
-
+            "message": "Notification kosong"
         }), 400
 
-    # =====================================================
-    # DATA NOTIFICATION
-    # =====================================================
-
-    order_number = data.get(
-        "order_id"
-    )
-
-    status_code = data.get(
-        "status_code"
-    )
-
-    gross_amount = data.get(
-        "gross_amount"
-    )
-
-    signature_key = data.get(
-        "signature_key"
-    )
-
-    # =====================================================
-    # VALIDASI
-    # =====================================================
+    order_number = data.get("order_id")
+    status_code = data.get("status_code")
+    gross_amount = data.get("gross_amount")
+    signature_key = data.get("signature_key")
 
     if not all([
         order_number,
@@ -403,37 +523,19 @@ def payment_notification():
         gross_amount,
         signature_key
     ]):
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Data notification "
-                "tidak lengkap"
-            )
-
+            "message": "Data notification tidak lengkap"
         }), 400
-
-    # =====================================================
-    # VERIFY SIGNATURE
-    # =====================================================
 
     server_key = current_app.config.get(
         "MIDTRANS_SERVER_KEY"
     )
 
     if not server_key:
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Midtrans server key "
-                "belum dikonfigurasi"
-            )
-
+            "message": "Midtrans server key belum dikonfigurasi"
         }), 500
 
     signature_string = (
@@ -443,380 +545,155 @@ def payment_notification():
         + str(server_key)
     )
 
-    expected_signature = (
-        hashlib.sha512(
-            signature_string.encode(
-                "utf-8"
-            )
-        ).hexdigest()
-    )
+    expected_signature = hashlib.sha512(
+        signature_string.encode("utf-8")
+    ).hexdigest()
 
-    if not hashlib.compare_digest(
+    if not hmac.compare_digest(
         expected_signature,
-        signature_key
+        str(signature_key)
     ):
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Signature notification "
-                "tidak valid"
-            )
-
+            "message": "Signature notification tidak valid"
         }), 403
-
-    # =====================================================
-    # CARI ORDER
-    # =====================================================
 
     order = Order.query.filter_by(
         order_number=order_number
     ).first()
 
     if not order:
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Order tidak ditemukan"
-            )
-
+            "message": "Order tidak ditemukan"
         }), 404
 
-    # =====================================================
-    # VALIDASI GROSS AMOUNT
-    #
-    # Jangan sampai notification mengatakan
-    # nominal berbeda dari order kita.
-    # =====================================================
-
     try:
+        from decimal import Decimal, InvalidOperation
 
-        notification_amount = float(
-            gross_amount
-        )
+        notification_amount = Decimal(str(gross_amount))
+        order_amount = Decimal(str(order.total))
 
-        order_amount = float(
-            order.total
-        )
-
-    except (
-        TypeError,
-        ValueError
-    ):
-
+    except (InvalidOperation, TypeError, ValueError):
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Gross amount tidak valid"
-            )
-
+            "message": "Gross amount tidak valid"
         }), 400
 
     if notification_amount != order_amount:
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Gross amount "
-                "tidak sesuai dengan order"
-            )
-
+            "message": "Gross amount tidak sesuai dengan order"
         }), 400
 
-    # =====================================================
-    # CARI PAYMENT
-    # =====================================================
-
-    payment = Payment.query.filter_by(
-
-        order_id=order.id,
-
-        provider="midtrans"
-
-    ).order_by(
-
-        Payment.id.desc()
-
-    ).first()
+    payment = (
+        Payment.query
+        .filter_by(
+            order_id=order.id,
+            provider="midtrans"
+        )
+        .order_by(Payment.id.desc())
+        .first()
+    )
 
     if not payment:
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Payment tidak ditemukan"
-            )
-
+            "message": "Payment tidak ditemukan"
         }), 404
 
-    # =====================================================
-    # DATA MIDTRANS
-    # =====================================================
-
-    transaction_status = data.get(
-        "transaction_status"
-    )
-
-    fraud_status = data.get(
-        "fraud_status"
-    )
-
-    transaction_id = data.get(
-        "transaction_id"
-    )
-
-    payment_type = data.get(
-        "payment_type"
-    )
-
-    # =====================================================
-    # SIMPAN RAW RESPONSE
-    # =====================================================
+    transaction_status = data.get("transaction_status")
+    fraud_status = data.get("fraud_status")
 
     payment.raw_response = data
 
-    # =====================================================
-    # TRANSACTION ID
-    # =====================================================
+    transaction_id = data.get("transaction_id")
 
     if transaction_id:
+        payment.transaction_id = transaction_id
 
-        payment.transaction_id = (
-            transaction_id
-        )
-
-    # =====================================================
-    # PAYMENT METHOD
-    # =====================================================
-
-    payment_method = (
-        map_payment_method(
-            payment_type
-        )
+    payment_method = map_payment_method(
+        data.get("payment_type")
     )
 
     if payment_method:
+        payment.payment_method = payment_method
 
-        payment.payment_method = (
-            payment_method
+    payment_success = (
+        transaction_status == "settlement"
+        or (
+            transaction_status == "capture"
+            and fraud_status == "accept"
         )
-
-    # =====================================================
-    # SUCCESS
-    # =====================================================
-
-    payment_success = False
-
-    if transaction_status == "settlement":
-
-        # ================================================
-        # Kalau sebelumnya sudah success,
-        # jangan generate ticket lagi.
-        # ================================================
-
-        if payment.status != "success":
-
-            payment.status = "success"
-
-            payment.paid_at = (
-                datetime.utcnow()
-            )
-
-            order.status = "paid"
-
-            payment_success = True
-
-    # =====================================================
-    # CREDIT CARD CAPTURE
-    # =====================================================
-
-    elif transaction_status == "capture":
-
-        if fraud_status == "accept":
-
-            if payment.status != "success":
-
-                payment.status = "success"
-
-                payment.paid_at = (
-                    datetime.utcnow()
-                )
-
-                order.status = "paid"
-
-                payment_success = True
-
-    # =====================================================
-    # PENDING
-    # =====================================================
-
-    elif transaction_status == "pending":
-
-        # Jangan mengubah payment success
-        # kembali menjadi pending.
-
-        if payment.status != "success":
-
-            payment.status = "pending"
-
-            order.status = "pending"
-
-    # =====================================================
-    # EXPIRED
-    # =====================================================
-
-    elif transaction_status == "expire":
-
-        # Jangan mengubah payment success
-        # kembali menjadi expired.
-
-        if payment.status != "success":
-
-            payment.status = "expired"
-
-            order.status = "expired"
-
-    # =====================================================
-    # DENY
-    # =====================================================
-
-    elif transaction_status == "deny":
-
-        if payment.status != "success":
-
-            payment.status = "failed"
-
-            order.status = "cancelled"
-
-    # =====================================================
-    # CANCEL
-    # =====================================================
-
-    elif transaction_status == "cancel":
-
-        if payment.status != "success":
-
-            payment.status = "failed"
-
-            order.status = "cancelled"
-
-    # =====================================================
-    # GENERATE TICKET
-    #
-    # HANYA ketika status berubah menjadi success.
-    # =====================================================
-
-    if payment_success:
-
-        # ================================================
-        # CEK APAKAH TICKET SUDAH PERNAH DIBUAT
-        # ================================================
-
-        existing_ticket = (
-            Ticket.query
-            .join(
-                Ticket.order_item
-            )
-            .filter(
-                Ticket.order_item.has(
-                    order_id=order.id
-                )
-            )
-            .first()
-        )
-
-        # ================================================
-        # GENERATE
-        # ================================================
-
-        if not existing_ticket:
-
-            owner_name = None
-
-            if order.user:
-
-                owner_name = getattr(
-                    order.user,
-                    "full_name",
-                    None
-                )
-
-            try:
-
-                generate_tickets_for_order(
-
-                    order=order,
-
-                    owner_name=owner_name
-                )
-
-            except Exception as e:
-
-                db.session.rollback()
-
-                return jsonify({
-
-                    "status": "error",
-
-                    "message": (
-                        "Payment berhasil, "
-                        "tetapi gagal "
-                        "generate ticket"
-                    ),
-
-                    "error": str(e)
-
-                }), 500
-
-    # =====================================================
-    # COMMIT
-    # =====================================================
+    )
 
     try:
+        if payment_success:
+            if payment.status != "success":
+                payment.status = "success"
+                payment.paid_at = datetime.utcnow()
+                order.status = "paid"
+
+                existing_ticket = (
+                    Ticket.query
+                    .join(Ticket.order_item)
+                    .filter(
+                        Ticket.order_item.has(
+                            order_id=order.id
+                        )
+                    )
+                    .first()
+                )
+
+                if not existing_ticket:
+                    owner_name = None
+
+                    if order.user:
+                        owner_name = (
+                            getattr(order.user, "full_name", None)
+                            or getattr(order.user, "name", None)
+                        )
+
+                    generate_tickets_for_order(
+                        order=order,
+                        owner_name=owner_name
+                    )
+
+        elif transaction_status == "pending":
+            if payment.status not in ("success", "expired", "failed"):
+                payment.status = "pending"
+                if order.status != "paid":
+                    order.status = "pending"
+
+        elif transaction_status == "expire":
+            if payment.status != "success":
+                payment.status = "expired"
+                if order.status != "paid":
+                    order.status = "expired"
+
+        elif transaction_status in ("deny", "cancel"):
+            if payment.status != "success":
+                payment.status = "failed"
+                if order.status != "paid":
+                    order.status = "cancelled"
 
         db.session.commit()
 
-    except Exception as e:
-
+    except Exception:
         db.session.rollback()
 
-        return jsonify({
-
-            "status": "error",
-
-            "message": (
-                "Gagal menyimpan "
-                "notification payment"
-            ),
-
-            "error": str(e)
-
-        }), 500
-
-    # =====================================================
-    # RESPONSE
-    # =====================================================
-
-    return jsonify({
-
-        "status": "success",
-
-        "message": (
-            "Notification berhasil "
-            "diproses"
+        current_app.logger.exception(
+            "Gagal memproses notifikasi Midtrans"
         )
 
+        return jsonify({
+            "status": "error",
+            "message": "Gagal memproses notification payment"
+        }), 500
+
+    return jsonify({
+        "status": "success",
+        "message": "Notification berhasil diproses"
     }), 200
 
 
@@ -826,136 +703,72 @@ def payment_notification():
 
 @jwt_required()
 def transaction_status():
-
-    # =====================================================
-    # USER DARI JWT
-    # =====================================================
-
-    user_id = get_jwt_identity()
+    identity = get_jwt_identity()
 
     try:
-
-        user_id = int(user_id)
-
-    except (
-        TypeError,
-        ValueError
-    ):
-
+        user_id = int(identity)
+    except (TypeError, ValueError):
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "User ID pada token "
-                "tidak valid"
-            )
-
+            "message": "User ID pada token tidak valid"
         }), 401
 
-    data = request.get_json(
-        silent=True
-    ) or {}
+    data = request.get_json(silent=True) or {}
 
-    order_id = data.get(
-        "order_id"
+    order_id = (
+        data.get("order_id")
+        or request.args.get("order_id")
     )
-
-    # =====================================================
-    # VALIDASI
-    # =====================================================
 
     if not order_id:
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Order ID wajib diisi"
-            )
-
+            "message": "Order ID wajib diisi"
         }), 400
 
-    # =====================================================
-    # CARI ORDER
-    # =====================================================
+    try:
+        order_id = int(order_id)
+    except (TypeError, ValueError):
+        return jsonify({
+            "status": "error",
+            "message": "Order ID tidak valid"
+        }), 400
 
-    order = db.session.get(
-        Order,
-        order_id
-    )
+    order = db.session.get(Order, order_id)
 
     if not order:
-
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Order tidak ditemukan"
-            )
-
+            "message": "Order tidak ditemukan"
         }), 404
 
-    # =====================================================
-    # CEK OWNER
-    # =====================================================
-
-    if int(order.user_id) != int(user_id):
-
+    if int(order.user_id) != user_id:
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Anda tidak memiliki "
-                "order ini"
-            )
-
+            "message": "Anda tidak memiliki order ini"
         }), 403
 
-    # =====================================================
-    # MIDTRANS STATUS
-    # =====================================================
-
     try:
-
         result = get_transaction_status(
             order.order_number
         )
 
-    except Exception as e:
+    except Exception:
+        current_app.logger.exception(
+            "Gagal mengambil status transaksi Midtrans"
+        )
 
         return jsonify({
-
             "status": "error",
-
-            "message": (
-                "Gagal mengambil "
-                "status transaksi Midtrans"
-            ),
-
-            "error": str(e)
-
+            "message": "Gagal mengambil status transaksi Midtrans"
         }), 500
 
-    # =====================================================
-    # RESPONSE
-    # =====================================================
-
     return jsonify({
-
         "status": "success",
-
         "data": {
-
             "order": order.to_dict(),
-
             "midtrans": result
-
         }
-
     }), 200
 
 
@@ -963,35 +776,15 @@ def transaction_status():
 # MAP PAYMENT METHOD
 # =========================================================
 
-def map_payment_method(
-    payment_type
-):
-
+def map_payment_method(payment_type):
     mapping = {
-
-        "bank_transfer":
-            "va",
-
-        "echannel":
-            "va",
-
-        "cstore":
-            "cash",
-
-        "credit_card":
-            "credit_card",
-
-        "gopay":
-            "ewallet",
-
-        "shopeepay":
-            "ewallet",
-
-        "qris":
-            "qris"
-
+        "bank_transfer": "va",
+        "echannel": "va",
+        "cstore": "cash",
+        "credit_card": "credit_card",
+        "gopay": "ewallet",
+        "shopeepay": "ewallet",
+        "qris": "qris"
     }
 
-    return mapping.get(
-        payment_type
-    )
+    return mapping.get(payment_type)

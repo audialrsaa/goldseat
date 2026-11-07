@@ -23,6 +23,10 @@ from app.routes.payment import payment_bp
 from app.routes.ticket import ticket_bp
 from app.routes.ticket_transfer import ticket_transfer_bp
 from app.routes.refund import refund_bp
+from app.routes.dashboard import dashboard_bp
+from app.routes.user import user_bp
+from app.routes.event_category import event_category_bp 
+from app.routes.banner import banner_bp
 
 app = Flask(__name__)
 
@@ -57,6 +61,10 @@ app.register_blueprint(payment_bp, url_prefix="/api/payments")
 app.register_blueprint(ticket_bp, url_prefix="/api/tickets")
 app.register_blueprint(ticket_transfer_bp, url_prefix="/api/ticket-transfers")
 app.register_blueprint(refund_bp, url_prefix="/api/refunds")
+app.register_blueprint(dashboard_bp, url_prefix="/api")
+app.register_blueprint(user_bp, url_prefix="/api/admin/users")
+app.register_blueprint(event_category_bp, url_prefix="/api/admin/event-categories")
+app.register_blueprint(banner_bp, url_prefix="/api/admin/banners")
 
 
 if __name__ == "__main__":

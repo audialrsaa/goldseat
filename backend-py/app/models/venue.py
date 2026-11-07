@@ -30,7 +30,7 @@ class Venue(db.Model):
     )
 
     maps_url = db.Column(
-        db.String(255),
+        db.Text,
         nullable=True
     )
 

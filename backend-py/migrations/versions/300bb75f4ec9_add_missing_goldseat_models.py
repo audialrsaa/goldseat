@@ -65,7 +65,7 @@ def upgrade():
     op.create_table('notifications',
     sa.Column('id', sa.BigInteger(), nullable=False),
     sa.Column('user_id', sa.BigInteger(), nullable=False),
-    sa.Column('type', sa.Enum('order_update', 'promo', 'system', 'refund', 'waitlist'), nullable=False),
+    sa.Column('type', sa.Enum('order_update', 'promo', 'system', 'refund'), nullable=False),
     sa.Column('title', sa.String(length=150), nullable=False),
     sa.Column('message', sa.Text(), nullable=False),
     sa.Column('data', sa.JSON(), nullable=True),
@@ -98,19 +98,6 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['voucher_id'], ['vouchers.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('waitlists',
-    sa.Column('id', sa.BigInteger(), nullable=False),
-    sa.Column('ticket_category_id', sa.BigInteger(), nullable=False),
-    sa.Column('user_id', sa.BigInteger(), nullable=False),
-    sa.Column('status', sa.Enum('waiting', 'notified', 'expired', 'converted'), nullable=False),
-    sa.Column('notified_at', sa.DateTime(), nullable=True),
-    sa.Column('offer_expires_at', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
-    sa.ForeignKeyConstraint(['ticket_category_id'], ['ticket_categories.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('checkins',

@@ -4,7 +4,8 @@ from flask import request, jsonify
 
 from flask_jwt_extended import (
     jwt_required,
-    get_jwt_identity
+    get_jwt_identity,
+    get_jwt,
 )
 
 from app.extensions import db
@@ -13,27 +14,31 @@ from app.models.voucher import Voucher
 
 
 # =========================================================
-# GET ALL ORDERS
-# =========================================================
-# User hanya boleh melihat order miliknya.
-#
-# Jika nanti endpoint ini khusus admin,
-# buat endpoint admin terpisah dengan role protection.
+# GET ALL ORDERS - ADMIN
 # =========================================================
 
 @jwt_required()
 def get_orders():
+    claims = get_jwt()
 
-    user_id = get_jwt_identity()
+    # Pastikan role admin ikut disimpan di token saat login.
+    role = claims.get("role")
+
+    allowed_roles = {
+        "admin",
+        "super_admin",
+        "superadmin",
+    }
+
+    if role not in allowed_roles:
+        return jsonify({
+            "status": "error",
+            "message": "Akses ditolak. Hanya admin yang dapat melihat semua pesanan.",
+        }), 403
 
     orders = (
         Order.query
-        .filter_by(
-            user_id=user_id
-        )
-        .order_by(
-            Order.id.desc()
-        )
+        .order_by(Order.id.desc())
         .all()
     )
 
@@ -42,7 +47,7 @@ def get_orders():
         "data": [
             order.to_dict()
             for order in orders
-        ]
+        ],
     }), 200
 
 

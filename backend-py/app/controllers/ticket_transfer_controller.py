@@ -9,8 +9,10 @@ from app.extensions import db
 from app.models.ticket import Ticket
 from app.models.ticket_transfer import TicketTransfer
 from app.models.user import User
+from app.middleware.role_middleware import role_required
+from app.services.ticket_service import generate_qr_token
 
-from app.utils.auth import get_current_user_id
+from app.utils.auth import get_current_role, get_current_user_id
 
 
 # =========================================================
@@ -185,6 +187,7 @@ def create_transfer():
 # =========================================================
 
 @jwt_required()
+@role_required("super_admin")
 def get_transfers():
 
     transfers = TicketTransfer.query.order_by(
@@ -241,6 +244,23 @@ def get_transfer(id):
             "status": "error",
             "message": "Transfer tidak ditemukan"
         }), 404
+
+    current_user_id = get_current_user_id()
+    if get_current_role() != "super_admin":
+        current_user = db.session.get(User, current_user_id)
+        can_access = (
+            transfer.from_user_id == current_user_id
+            or transfer.to_user_id == current_user_id
+            or (
+                current_user is not None
+                and current_user.email == transfer.to_email
+            )
+        )
+        if not can_access:
+            return jsonify({
+                "status": "error",
+                "message": "Anda tidak memiliki akses ke transfer ini"
+            }), 403
 
     # ==========================
     # AUTO EXPIRED
@@ -420,6 +440,8 @@ def accept_transfer(id):
         "full_name",
         None
     )
+
+    ticket.qr_code = generate_qr_token()
 
     ticket.status = "transferred"
 

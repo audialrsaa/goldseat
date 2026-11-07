@@ -33,7 +33,6 @@ class Notification(db.Model):
             "promo",
             "system",
             "refund",
-            "waitlist"
         ),
         nullable=False
     )

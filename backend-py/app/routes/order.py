@@ -7,81 +7,49 @@ from app.controllers.order_controller import (
     create_order,
     cancel_order,
     update_order,
-    delete_order
+    delete_order,
 )
 
+order_bp = Blueprint("order", __name__)
 
-order_bp = Blueprint(
-    "order",
-    __name__
-)
-
-
-# =========================================================
-# GET ALL ORDERS
-# =========================================================
-
-order_bp.route(
+order_bp.add_url_rule(
     "",
-    methods=["GET"]
-)(get_orders)
+    view_func=get_orders,
+    methods=["GET"],
+)
 
-
-# =========================================================
-# GET MY ORDERS
-# =========================================================
-
-order_bp.route(
+order_bp.add_url_rule(
     "/my",
-    methods=["GET"]
-)(get_my_orders)
+    view_func=get_my_orders,
+    methods=["GET"],
+)
 
-
-# =========================================================
-# CREATE ORDER
-# =========================================================
-
-order_bp.route(
+order_bp.add_url_rule(
     "",
-    methods=["POST"]
-)(create_order)
+    view_func=create_order,
+    methods=["POST"],
+)
 
-
-# =========================================================
-# GET ORDER DETAIL
-# =========================================================
-
-order_bp.route(
+order_bp.add_url_rule(
     "/<int:id>",
-    methods=["GET"]
-)(get_order)
+    view_func=get_order,
+    methods=["GET"],
+)
 
-
-# =========================================================
-# UPDATE ORDER
-# =========================================================
-
-order_bp.route(
+order_bp.add_url_rule(
     "/<int:id>",
-    methods=["PUT"]
-)(update_order)
+    view_func=update_order,
+    methods=["PUT"],
+)
 
-
-# =========================================================
-# CANCEL ORDER
-# =========================================================
-
-order_bp.route(
+order_bp.add_url_rule(
     "/<int:id>/cancel",
-    methods=["PATCH"]
-)(cancel_order)
+    view_func=cancel_order,
+    methods=["PATCH"],
+)
 
-
-# =========================================================
-# DELETE ORDER
-# =========================================================
-
-order_bp.route(
+order_bp.add_url_rule(
     "/<int:id>",
-    methods=["DELETE"]
-)(delete_order)
+    view_func=delete_order,
+    methods=["DELETE"],
+)

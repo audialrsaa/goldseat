@@ -2,6 +2,7 @@ from app.extensions import db
 
 
 class EventCategory(db.Model):
+
     __tablename__ = "event_categories"
 
     id = db.Column(
@@ -32,10 +33,11 @@ class EventCategory(db.Model):
         default=True
     )
 
-    # Relationship ke Event sudah ditangani oleh Event.category
-    # dengan backref="events". Tidak perlu define ulang di sini.
+    # Relationship ke Event ditangani
+    # oleh Event.category dengan backref="events"
 
     def to_dict(self):
+
         return {
             "id": self.id,
             "name": self.name,
