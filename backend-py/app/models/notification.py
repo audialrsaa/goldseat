@@ -1,9 +1,13 @@
 from app.extensions import db
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class Notification(db.Model):
     __tablename__ = "notifications"
 
+    __table_args__ = (
+        db.Index("idx_notifications_user_id", "user_id"),
+    )
     # =========================================================
     # PRIMARY KEY
     # =========================================================
@@ -28,12 +32,7 @@ class Notification(db.Model):
     # =========================================================
 
     type = db.Column(
-        db.Enum(
-            "order_update",
-            "promo",
-            "system",
-            "refund",
-        ),
+        db.String(30),
         nullable=False
     )
 
@@ -61,10 +60,7 @@ class Notification(db.Model):
     # Payload tambahan untuk kebutuhan deep-link
     # atau informasi tambahan notifikasi.
 
-    data = db.Column(
-        db.JSON,
-        nullable=True
-    )
+    data = db.Column(JSONB, nullable=True)
 
     # =========================================================
     # READ STATUS
@@ -74,7 +70,7 @@ class Notification(db.Model):
         db.Boolean,
         nullable=False,
         default=False,
-        server_default="0"
+        server_default=db.text("false")
     )
 
     # =========================================================

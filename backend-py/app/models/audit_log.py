@@ -1,8 +1,12 @@
 from app.extensions import db
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class AuditLog(db.Model):
     __tablename__ = "audit_logs"
+    __table_args__ = (
+        db.Index("idx_audit_logs_user_id", "user_id"),
+    )
 
     # =========================================================
     # PRIMARY KEY
@@ -54,7 +58,7 @@ class AuditLog(db.Model):
     # =========================================================
 
     old_values = db.Column(
-        db.JSON,
+        JSONB,
         nullable=True
     )
 
@@ -63,7 +67,7 @@ class AuditLog(db.Model):
     # =========================================================
 
     new_values = db.Column(
-        db.JSON,
+        JSONB,
         nullable=True
     )
 

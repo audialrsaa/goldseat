@@ -4,6 +4,12 @@ from app.extensions import db
 class Refund(db.Model):
     __tablename__ = "refunds"
 
+    __table_args__ = (
+        db.Index("idx_refunds_order_id", "order_id"),
+        db.Index("idx_refunds_processed_by", "processed_by"),
+        db.Index("idx_refunds_requested_by", "requested_by"),
+    )
+
     # ==========================
     # PRIMARY KEY
     # ==========================
@@ -56,12 +62,7 @@ class Refund(db.Model):
     # ==========================
 
     status = db.Column(
-        db.Enum(
-            "requested",
-            "approved",
-            "rejected",
-            "processed"
-        ),
+        db.String(20),
         nullable=False,
         default="requested"
     )
@@ -90,11 +91,7 @@ class Refund(db.Model):
     # ==========================
 
     refund_method = db.Column(
-        db.Enum(
-            "original_payment",
-            "bank_transfer",
-            "wallet_credit"
-        ),
+        db.String(30),
         nullable=False,
         default="original_payment"
     )

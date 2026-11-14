@@ -4,6 +4,11 @@ from app.extensions import db
 class OrderItem(db.Model):
     __tablename__ = "order_items"
 
+    __table_args__ = (
+        db.Index("idx_order_items_order_id", "order_id"),
+        db.Index("idx_order_items_ticket_category_id", "ticket_category_id"),
+    )
+
     # =========================================================
     # PRIMARY KEY
     # =========================================================

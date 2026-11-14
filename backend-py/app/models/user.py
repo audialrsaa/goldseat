@@ -2,8 +2,11 @@ from app.extensions import db
 
 
 class User(db.Model):
-
     __tablename__ = "users"
+
+    __table_args__ = (
+        db.Index("idx_users_role_id", "role_id"),
+    )
 
     id = db.Column(
         db.BigInteger,
@@ -43,11 +46,7 @@ class User(db.Model):
     )
 
     status = db.Column(
-        db.Enum(
-            "active",
-            "suspended",
-            "inactive"
-        ),
+        db.String(20),
         nullable=False,
         default="active"
     )
@@ -82,6 +81,12 @@ class User(db.Model):
         db.DateTime,
         server_default=db.func.now(),
         onupdate=db.func.now()
+    )
+
+    role = db.relationship(
+        "Role",
+        back_populates="users",
+        foreign_keys=[role_id]
     )
 
     # ==========================================

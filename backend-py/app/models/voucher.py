@@ -4,6 +4,10 @@ from app.extensions import db
 class Voucher(db.Model):
     __tablename__ = "vouchers"
 
+    __table_args__ = (
+        db.Index("idx_vouchers_event_id", "event_id"),
+    )
+
     id = db.Column(
         db.BigInteger,
         primary_key=True
@@ -22,10 +26,7 @@ class Voucher(db.Model):
     )
 
     type = db.Column(
-        db.Enum(
-            "percentage",
-            "fixed"
-        ),
+        db.String(20),
         nullable=False
     )
 

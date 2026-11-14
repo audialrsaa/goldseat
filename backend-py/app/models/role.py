@@ -33,8 +33,8 @@ class Role(db.Model):
 
     users = db.relationship(
         "User",
+        back_populates="role",
         foreign_keys="User.role_id",
-        backref="role",
         lazy=True
     )
 

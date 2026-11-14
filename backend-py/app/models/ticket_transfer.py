@@ -4,6 +4,12 @@ from app.extensions import db
 class TicketTransfer(db.Model):
     __tablename__ = "ticket_transfers"
 
+    __table_args__ = (
+        db.Index("idx_ticket_transfers_from_user_id", "from_user_id"),
+        db.Index("idx_ticket_transfers_ticket_id", "ticket_id"),
+        db.Index("idx_ticket_transfers_to_user_id", "to_user_id"),
+    )
+
     # ==========================
     # PRIMARY KEY
     # ==========================
@@ -57,12 +63,7 @@ class TicketTransfer(db.Model):
     # ==========================
 
     status = db.Column(
-        db.Enum(
-            "pending",
-            "accepted",
-            "cancelled",
-            "expired"
-        ),
+        db.String(20),
         nullable=False,
         default="pending"
     )

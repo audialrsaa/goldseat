@@ -4,6 +4,10 @@ from app.extensions import db
 class TicketCategory(db.Model):
     __tablename__ = "ticket_categories"
 
+    __table_args__ = (
+        db.Index("idx_ticket_categories_event_id", "event_id"),
+    )
+
     # =========================================================
     # PRIMARY KEY
     # =========================================================
@@ -70,7 +74,7 @@ class TicketCategory(db.Model):
         db.Boolean,
         nullable=False,
         default=True,
-        server_default="1"
+        server_default=db.text("true")
     )
 
     # =========================================================

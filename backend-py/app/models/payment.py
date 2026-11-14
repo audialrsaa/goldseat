@@ -1,8 +1,13 @@
 from app.extensions import db
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 class Payment(db.Model):
     __tablename__ = "payments"
+
+    __table_args__ = (
+        db.Index("idx_payments_order_id", "order_id"),
+    )
 
     # =========================================================
     # PRIMARY KEY
@@ -42,12 +47,7 @@ class Payment(db.Model):
     # =========================================================
 
     status = db.Column(
-        db.Enum(
-            "pending",
-            "success",
-            "failed",
-            "expired"
-        ),
+        db.String(20),
         nullable=False,
         default="pending"
     )
@@ -75,13 +75,7 @@ class Payment(db.Model):
     # =========================================================
 
     payment_method = db.Column(
-        db.Enum(
-            "va",
-            "qris",
-            "credit_card",
-            "ewallet",
-            "cash"
-        ),
+        db.String(20),
         nullable=True
     )
 
@@ -100,10 +94,7 @@ class Payment(db.Model):
     # Menyimpan response asli dari payment gateway
     # untuk kebutuhan audit/debugging.
 
-    raw_response = db.Column(
-        db.JSON,
-        nullable=True
-    )
+    raw_response = db.Column(JSONB, nullable=True)
 
     # =========================================================
     # IDEMPOTENCY KEY

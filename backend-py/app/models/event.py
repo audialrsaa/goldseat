@@ -3,6 +3,12 @@ from app.extensions import db
 
 class Event(db.Model):
     __tablename__ = "events"
+    __table_args__ = (
+        db.Index("idx_events_artist_id", "artist_id"),
+        db.Index("idx_events_category_id", "category_id"),
+        db.Index("idx_events_created_by", "created_by"),
+        db.Index("idx_events_venue_id", "venue_id"),
+    )
 
     # ==========================
     # PRIMARY KEY
@@ -122,11 +128,7 @@ class Event(db.Model):
     # ==========================
 
     publish_status = db.Column(
-        db.Enum(
-            "draft",
-            "published",
-            "unpublished"
-        ),
+        db.String(20),
         nullable=False,
         default="draft"
     )

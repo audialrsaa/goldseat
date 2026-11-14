@@ -4,6 +4,11 @@ from app.extensions import db
 class Order(db.Model):
     __tablename__ = "orders"
 
+    __table_args__ = (
+        db.Index("idx_orders_user_id", "user_id"),
+        db.Index("idx_orders_voucher_id", "voucher_id"),
+    )
+
     # =========================================================
     # PRIMARY KEY
     # =========================================================
@@ -38,14 +43,7 @@ class Order(db.Model):
     # =========================================================
 
     status = db.Column(
-        db.Enum(
-            "pending",
-            "paid",
-            "expired",
-            "cancelled",
-            "refunded",
-            "partially_refunded"
-        ),
+        db.String(30),
         nullable=False,
         default="pending"
     )
@@ -90,10 +88,7 @@ class Order(db.Model):
     # =========================================================
 
     channel = db.Column(
-        db.Enum(
-            "online",
-            "offline"
-        ),
+        db.String(20),
         nullable=False,
         default="online"
     )

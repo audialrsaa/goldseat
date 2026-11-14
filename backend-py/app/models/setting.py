@@ -43,12 +43,7 @@ class Setting(db.Model):
     # =========================================================
 
     type = db.Column(
-        db.Enum(
-            "string",
-            "number",
-            "boolean",
-            "json"
-        ),
+        db.String(20),
         nullable=False,
         default="string"
     )

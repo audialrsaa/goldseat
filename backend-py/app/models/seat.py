@@ -4,6 +4,11 @@ from app.extensions import db
 class Seat(db.Model):
     __tablename__ = "seats"
 
+    __table_args__ = (
+        db.Index("idx_seats_locked_by", "locked_by"),
+        db.Index("idx_seats_ticket_category_id", "ticket_category_id"),
+    )
+
     # =========================================================
     # PRIMARY KEY
     # =========================================================
@@ -44,11 +49,7 @@ class Seat(db.Model):
     # =========================================================
 
     status = db.Column(
-        db.Enum(
-            "available",
-            "locked",
-            "booked"
-        ),
+        db.String(20),
         nullable=False,
         default="available"
     )

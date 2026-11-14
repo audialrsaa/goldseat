@@ -4,6 +4,11 @@ from app.extensions import db
 class Review(db.Model):
     __tablename__ = "reviews"
 
+    __table_args__ = (
+        db.Index("idx_reviews_event_id", "event_id"),
+        db.Index("idx_reviews_user_id", "user_id"),
+    )
+
     # =========================================================
     # PRIMARY KEY
     # =========================================================
@@ -69,7 +74,7 @@ class Review(db.Model):
         db.Boolean,
         nullable=False,
         default=False,
-        server_default="0"
+        server_default=db.text("false")
     )
 
     # =========================================================

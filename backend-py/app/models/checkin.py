@@ -3,6 +3,10 @@ from app.extensions import db
 
 class Checkin(db.Model):
     __tablename__ = "checkins"
+    __table_args__ = (
+        db.Index("idx_checkins_checked_in_by", "checked_in_by"),
+        db.Index("idx_checkins_ticket_id", "ticket_id"),
+    )
 
     # =========================================================
     # PRIMARY KEY

@@ -4,6 +4,12 @@ from app.extensions import db
 class Ticket(db.Model):
     __tablename__ = "tickets"
 
+    __table_args__ = (
+        db.Index("idx_tickets_order_item_id", "order_item_id"),
+        db.Index("idx_tickets_owner_user_id", "owner_user_id"),
+        db.Index("idx_tickets_seat_id", "seat_id"),
+    )
+
     # =========================================================
     # PRIMARY KEY
     # =========================================================
@@ -78,12 +84,7 @@ class Ticket(db.Model):
     # =========================================================
 
     status = db.Column(
-        db.Enum(
-            "issued",
-            "used",
-            "cancelled",
-            "transferred"
-        ),
+        db.String(20),
         nullable=False,
         default="issued"
     )

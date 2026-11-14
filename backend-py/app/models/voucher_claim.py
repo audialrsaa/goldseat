@@ -4,6 +4,11 @@ from app.extensions import db
 class VoucherClaim(db.Model):
     __tablename__ = "voucher_claims"
 
+    __table_args__ = (
+        db.Index("idx_voucher_claims_user_id", "user_id"),
+        db.Index("idx_voucher_claims_voucher_id", "voucher_id"),
+    )
+
     # =========================================================
     # PRIMARY KEY
     # =========================================================
