@@ -12,14 +12,15 @@ import {
   Animated,
   Dimensions,
   Modal,
-  ActivityIndicator, // Tambahan untuk loading
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, type Href } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// IMPORT SERVICE API
 import { fetchCategories, fetchEvents } from "../../lib/eventService";
+import { fetchMyNotifications } from "../../lib/notificationService"; // <-- IMPORT BARU
 
 const COLORS = {
   primary: "#F191AC",
@@ -85,12 +86,6 @@ const PRICE_RANGES = [
   { id: "above_1m", label: "> Rp1jt" },
 ];
 
-const NOTIFICATIONS = [
-  { id: "1", title: "Ticket Ready!", message: "Your ticket for Coldplay is ready.", time: "2h ago", icon: "ticket" },
-  { id: "2", title: "Promo Alert!", message: "Diskon 20% untuk konser minggu ini.", time: "5h ago", icon: "pricetag" },
-  { id: "3", title: "Reminder", message: "Konser Sheila On 7 besok malam!", time: "1d ago", icon: "calendar" },
-];
-
 function AnimatedPressable({ children, style, onPress, scaleTo = 0.96 }: any) {
   const scale = useRef(new Animated.Value(1)).current;
   return (
@@ -106,17 +101,19 @@ function AnimatedPressable({ children, style, onPress, scaleTo = 0.96 }: any) {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useLocalSearchParams<{ user?: string }>();
+  const { user: paramUser } = useLocalSearchParams<{ user?: string }>();
   
-  // STATE UNTUK API
   const [categories, setCategories] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [userName, setUserName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   
+  // STATE UNTUK NOTIFIKASI DI MODAL
+  const [notifications, setNotifications] = useState<any[]>([]);
+
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<(string | number)[]>([]);
   const [selectedSort, setSelectedSort] = useState<string>("date_asc");
   const [selectedPriceRange, setSelectedPriceRange] = useState<string>("all");
@@ -124,16 +121,28 @@ export default function HomeScreen() {
   const activeFilterCount =
     selectedCategoryIds.length + (selectedSort !== "date_asc" ? 1 : 0) + (selectedPriceRange !== "all" ? 1 : 0);
 
-  // FETCH DATA DARI BACKEND
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
-      const [fetchedCategories, fetchedEvents] = await Promise.all([
+      
+      try {
+        const userDataStr = await AsyncStorage.getItem("user_data");
+        if (userDataStr) {
+          const userData = JSON.parse(userDataStr);
+          setUserName(userData.full_name);
+        }
+      } catch (error) {
+        console.error("Gagal ambil user:", error);
+      }
+
+      const [fetchedCategories, fetchedEvents, fetchedNotifs] = await Promise.all([
         fetchCategories(),
         fetchEvents(),
+        fetchMyNotifications(), // <-- TARIK NOTIFIKASI SEKALIAN
       ]);
       setCategories(fetchedCategories);
       setEvents(fetchedEvents);
+      setNotifications(fetchedNotifs);
       setIsLoading(false);
     };
     loadData();
@@ -146,7 +155,6 @@ export default function HomeScreen() {
     return "Good Evening";
   };
 
-  // FILTER DATA DARI API
   const filteredUpcoming = useMemo(() => {
     return events.filter(e => 
       e.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -203,7 +211,6 @@ export default function HomeScreen() {
     return () => stopAutoplay();
   }, []);
 
-  // TAMPILAN LOADING
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -218,11 +225,10 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           
-          {/* Header */}
           <View style={styles.header}>
             <View>
               <Text style={styles.greeting}>{getGreeting()}</Text>
-              <Text style={styles.userName}>{user || "Audia Larasati"}</Text>
+              <Text style={styles.userName}>{userName || paramUser || "Guest"}</Text>
             </View>
             <View style={styles.headerActions}>
               <AnimatedPressable style={styles.iconButton} scaleTo={0.88} onPress={() => setShowNotif(true)}>
@@ -235,7 +241,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Search Bar */}
           <View style={styles.searchContainer}>
             <Ionicons name="search-outline" size={20} color={COLORS.textMuted} style={styles.searchIcon} />
             <TextInput
@@ -263,7 +268,6 @@ export default function HomeScreen() {
             </AnimatedPressable>
           </View>
 
-          {/* Hero Banner Carousel (Hardcoded Promo) */}
           {searchQuery.length === 0 && (
             <>
               <Animated.FlatList
@@ -317,7 +321,6 @@ export default function HomeScreen() {
             </>
           )}
 
-          {/* Categories (DARI API) */}
           {searchQuery.length === 0 && (
             <>
               <View style={styles.sectionHeader}>
@@ -339,7 +342,6 @@ export default function HomeScreen() {
             </>
           )}
 
-          {/* Upcoming Events (DARI API) */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{searchQuery ? "Search Results" : "Upcoming Events"}</Text>
             {!searchQuery && (
@@ -386,7 +388,6 @@ export default function HomeScreen() {
             </ScrollView>
           )}
 
-          {/* Recommended (DARI API) */}
           {searchQuery.length === 0 && (
             <>
               <View style={styles.sectionHeader}>
@@ -420,7 +421,6 @@ export default function HomeScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* Modal Notifikasi */}
       <Modal visible={showNotif} transparent animationType="fade" onRequestClose={() => setShowNotif(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowNotif(false)}>
           <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
@@ -432,24 +432,33 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={{ maxHeight: 400 }}>
-              {NOTIFICATIONS.map((notif, idx) => (
-                <View key={notif.id} style={[styles.notifItem, idx === NOTIFICATIONS.length - 1 && { borderBottomWidth: 0 }]}>
-                  <View style={styles.notifIconWrap}>
-                    <Ionicons name={notif.icon as any} size={18} color={COLORS.primary} />
+              {notifications.length === 0 ? (
+                <Text style={{ textAlign: "center", color: COLORS.textMuted, paddingVertical: 20 }}>
+                  Belum ada notifikasi.
+                </Text>
+              ) : (
+                notifications.map((notif, idx) => (
+                  <View key={notif.id} style={[styles.notifItem, idx === notifications.length - 1 && { borderBottomWidth: 0 }]}>
+                    <View style={styles.notifIconWrap}>
+                      <Ionicons 
+                        name={notif.type === "payment" ? "card" : notif.type === "ticket" ? "ticket" : "notifications"} 
+                        size={18} 
+                        color={COLORS.primary} 
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notifTitle}>{notif.title}</Text>
+                      <Text style={styles.notifMsg}>{notif.message}</Text>
+                      <Text style={styles.notifTime}>{notif.time}</Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.notifTitle}>{notif.title}</Text>
-                    <Text style={styles.notifMsg}>{notif.message}</Text>
-                    <Text style={styles.notifTime}>{notif.time}</Text>
-                  </View>
-                </View>
-              ))}
+                ))
+              )}
             </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
 
-      {/* Modal Filter */}
       <Modal visible={showFilter} transparent animationType="fade" onRequestClose={() => setShowFilter(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowFilter(false)}>
           <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
@@ -600,4 +609,4 @@ const styles = StyleSheet.create({
   notifTitle: { fontSize: 14, fontWeight: "700", color: COLORS.textMain, marginBottom: 2 },
   notifMsg: { fontSize: 12, color: COLORS.textMuted, marginBottom: 4, lineHeight: 18 },
   notifTime: { fontSize: 10, color: COLORS.textLight, fontWeight: "500" },
-});   
+});

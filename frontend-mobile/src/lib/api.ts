@@ -7,6 +7,9 @@ export const ENDPOINTS = {
   me: `${API_URL}/api/auth/me`,
 
   events: `${API_URL}/api/events/`,
-
   eventCategories: `${API_URL}/api/admin/event-categories/`,
+  artists: `${API_URL}/api/artists/`, 
+  
+  myOrders: `${API_URL}/api/orders/my`,
+  tickets: `${API_URL}/api/tickets/`,
 };
