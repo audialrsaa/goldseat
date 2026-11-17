@@ -1,7 +1,9 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Swal from "sweetalert2";
 
 import {
   Search,
@@ -19,7 +21,6 @@ import {
 import { useAuth } from "@/lib/auth-context";
 
 import SuperAdminSidebar from "../components/SuperAdminSidebar";
-
 
 const activityDotColor = {
   order: "bg-emerald-400",
@@ -87,6 +88,28 @@ export default function SuperAdminDashboardPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Konfirmasi sebelum logout
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: "Yakin ingin logout?",
+      text: "Kamu harus login kembali untuk mengakses dashboard.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Logout",
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+      background: "#18181b",
+      color: "#f4f4f5",
+      confirmButtonColor: "#e11d48",
+      cancelButtonColor: "#3f3f46",
+      focusCancel: true,
+    });
+
+    if (result.isConfirmed) {
+      await logout();
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && (!user || user.role !== "super_admin")) {
       router.push("/login");
@@ -130,10 +153,10 @@ export default function SuperAdminDashboardPage() {
   return (
     <div className="flex min-h-screen bg-[#0a0a0e] text-zinc-100 font-sans">
 
-      {/* ============ SIDEBAR ============ */}
+      {/* SIDEBAR */}
       <SuperAdminSidebar />
 
-      {/* ============ MAIN ============ */}
+      {/* MAIN */}
       <div className="flex min-w-0 flex-1 flex-col">
 
         <header className="flex items-center justify-between gap-4 border-b border-zinc-800 px-6 py-4 md:px-8">
@@ -167,8 +190,9 @@ export default function SuperAdminDashboardPage() {
               className="text-zinc-400"
             />
 
+            {/* TOMBOL LOGOUT */}
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="flex items-center gap-1.5 rounded-[9px] border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-[13px] text-zinc-400 transition hover:border-rose-800 hover:text-rose-400"
               title="Logout"
             >
@@ -211,7 +235,7 @@ export default function SuperAdminDashboardPage() {
 
           {error && (
             <div className="mb-5 rounded-xl border border-rose-900/60 bg-rose-950/40 px-4 py-3 text-[13px] text-rose-300">
-              gagal memuat data dashboard: {error}. pastikan endpoint
+              Gagal memuat data dashboard: {error}. Pastikan endpoint
               GET /api/admin/dashboard sudah aktif dan token super admin valid.
             </div>
           )}
@@ -300,8 +324,8 @@ export default function SuperAdminDashboardPage() {
 
                 <div className="py-8 text-center text-[13px] text-zinc-500">
                   {loading
-                    ? "memuat grafik..."
-                    : "belum ada data penjualan"}
+                    ? "Memuat grafik..."
+                    : "Belum ada data penjualan"}
                 </div>
 
               ) : (
@@ -356,11 +380,9 @@ export default function SuperAdminDashboardPage() {
             <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-6">
 
               <div className="mb-5">
-
                 <span className="font-display text-[15.5px] font-semibold">
                   Aktivitas Terbaru
                 </span>
-
               </div>
 
               <div className="flex flex-col">
@@ -368,7 +390,7 @@ export default function SuperAdminDashboardPage() {
                 {loading ? (
 
                   <div className="py-8 text-center text-[13px] text-zinc-500">
-                    memuat aktivitas...
+                    Memuat aktivitas...
                   </div>
 
                 ) : stats &&
@@ -405,7 +427,7 @@ export default function SuperAdminDashboardPage() {
                 ) : (
 
                   <div className="py-8 text-center text-[13px] text-zinc-500">
-                    belum ada aktivitas
+                    Belum ada aktivitas
                   </div>
 
                 )}

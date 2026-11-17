@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -9,7 +10,10 @@ import {
   Music2,
   Tag,
   Ticket,
+  LogOut,
 } from "lucide-react";
+import Swal from "sweetalert2";
+
 import { useAuth } from "../../../lib/auth-context";
 
 const MENU_GROUPS = [
@@ -61,6 +65,11 @@ const MENU_GROUPS = [
         icon: Tag,
         href: "/event-manager/vouchers",
       },
+      {
+        label: "Seat Management",
+        icon: Ticket,
+        href: "/event-manager/seats",
+      },
     ],
   },
 ];
@@ -75,10 +84,33 @@ function isActivePath(pathname, href) {
 
 export default function EventManagerSidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    const result = await Swal.fire({
+      title: "Yakin ingin logout?",
+      text: "Kamu harus login kembali untuk mengakses dashboard.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ya, Logout",
+      cancelButtonText: "Batal",
+      reverseButtons: true,
+      background: "#18181b",
+      color: "#f4f4f5",
+      confirmButtonColor: "#e11d48",
+      cancelButtonColor: "#3f3f46",
+      focusCancel: true,
+    });
+
+    if (result.isConfirmed) {
+      await logout();
+    }
+  };
 
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-zinc-800 bg-[#0c0c11] p-4 md:flex [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-zinc-800">
+
+      {/* BRAND */}
       <div className="flex items-center gap-2.5 px-2 pb-6">
         <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-gradient-to-br from-violet-400 to-amber-400 font-display text-[13px] font-bold text-zinc-950">
           SM
@@ -94,16 +126,19 @@ export default function EventManagerSidebar() {
         </div>
       </div>
 
+      {/* USER INFO */}
       <div className="mb-5 rounded-xl border border-zinc-800 bg-zinc-950/60 px-3.5 py-3">
         <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-widest text-zinc-500">
           Masuk sebagai
           <span className="h-[7px] w-[7px] rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
         </div>
+
         <div className="mt-1 truncate text-sm font-semibold text-white">
           {user?.full_name || user?.email || "Event Manager"}
         </div>
       </div>
 
+      {/* NAVIGATION */}
       <nav className="flex flex-1 flex-col gap-5">
         {MENU_GROUPS.map((group) => (
           <div key={group.title} className="flex flex-col gap-1">
@@ -138,6 +173,18 @@ export default function EventManagerSidebar() {
           </div>
         ))}
       </nav>
+
+      {/* LOGOUT */}
+      <div className="mt-5 border-t border-zinc-800 pt-4">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2.5 text-[13.5px] text-zinc-400 transition-colors hover:border-rose-500/20 hover:bg-rose-500/10 hover:text-rose-400"
+        >
+          <LogOut size={16} strokeWidth={2} />
+          Logout
+        </button>
+      </div>
     </aside>
   );
 }

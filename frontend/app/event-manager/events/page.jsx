@@ -1,13 +1,21 @@
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import EventManagerSidebar from "../../components/event-manager/EventManagerSidebar";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000/api";
+// ============================================================
+// API CONFIGURATION
+// ============================================================
 
-const API_URL = API_BASE_URL.replace(/\/$/, "");
+const RAW_API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"
+).replace(/\/+$/, "");
+
+const API_URL = /\/api$/i.test(RAW_API_URL)
+  ? RAW_API_URL
+  : `${RAW_API_URL}/api`;
 
 const EVENTS_ENDPOINT = `${API_URL}/events`;
 const ARTISTS_ENDPOINT = `${API_URL}/artists`;
@@ -191,7 +199,6 @@ export default function EventManagementPage() {
     if (response.status === 401) {
       localStorage.removeItem("smencore_token");
       localStorage.removeItem("smencore_user");
-      document.cookie = "smencore_token=; path=/; max-age=0";
 
       router.push("/login");
 
@@ -239,7 +246,6 @@ export default function EventManagementPage() {
     if (response.status === 401) {
       localStorage.removeItem("smencore_token");
       localStorage.removeItem("smencore_user");
-      document.cookie = "smencore_token=; path=/; max-age=0";
 
       router.push("/login");
 

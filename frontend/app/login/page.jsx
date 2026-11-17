@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef } from "react";
@@ -6,7 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import { loginUser, saveSession } from "../../lib/api";
-import { setTokenCookie } from "../actions/auth";
+
 import {
   ROLE_DASHBOARDS,
   isAllowedRole,
@@ -48,6 +49,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // Login ke backend Flask
       const res = await loginUser({
         email: form.email.trim(),
         password: form.password,
@@ -57,27 +59,31 @@ export default function LoginPage() {
       const user = res?.data?.user;
       const role = user?.role;
 
+      // Validasi token
       if (!accessToken) {
-        throw new Error("Login berhasil, tetapi access token tidak ditemukan.");
+        throw new Error(
+          "Login berhasil, tetapi access token tidak ditemukan."
+        );
       }
 
+      // Validasi role
       if (!role || !isAllowedRole(role)) {
         throw new Error(
           "Your account does not have access to this system."
         );
       }
 
-      // Simpan session di browser
+      // Simpan session ke localStorage
       saveSession({
         access_token: accessToken,
         user,
       });
 
-      // Simpan token sebagai HttpOnly cookie
-      await setTokenCookie(accessToken);
+      // Redirect sesuai role
+      window.location.replace(
+        ROLE_DASHBOARDS[role] || "/forbidden"
+      );
 
-      // Arahkan user sesuai role
-      router.replace(ROLE_DASHBOARDS[role] || "/forbidden");
     } catch (err) {
       console.error("Login error:", err);
 
@@ -91,7 +97,8 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#F5F0EB]">
-      {/* ================= LEFT — FORM ================= */}
+
+      {/* LEFT — FORM */}
       <section className="flex items-center justify-center px-6 py-12 lg:px-10">
         <div className="w-full max-w-[420px]">
 
@@ -131,6 +138,7 @@ export default function LoginPage() {
             onSubmit={handleSubmit}
             noValidate
           >
+
             {/* Email */}
             <div className="space-y-1.5">
               <label
@@ -214,12 +222,14 @@ export default function LoginPage() {
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
+
           </form>
         </div>
       </section>
 
-      {/* ================= RIGHT — VISUAL ================= */}
+      {/* RIGHT — VISUAL */}
       <VisualPanel />
+
     </main>
   );
 }
@@ -272,6 +282,7 @@ function VisualPanel() {
       onMouseLeave={handleMouseLeave}
       className="relative hidden lg:flex items-center justify-center bg-[#24151B] m-6 rounded-3xl overflow-hidden min-h-[calc(100vh-3rem)]"
     >
+
       {/* Background photo */}
       <Image
         src="/logo/image.png"
@@ -335,6 +346,7 @@ function VisualPanel() {
 
         {/* Logo */}
         <div className="relative flex-1 flex items-center justify-center w-full py-8">
+
           <div className="absolute inset-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px] border border-white/5 rounded-full" />
 
           <div className="absolute inset-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] border border-white/10 rounded-full" />
@@ -363,10 +375,12 @@ function VisualPanel() {
               sm<span className="text-[#E77D9A]">Encore</span>
             </span>
           </div>
+
         </div>
 
         {/* Bottom text */}
         <div className="text-center max-w-sm">
+
           <h2 className="font-display text-xl font-semibold text-white leading-snug tracking-[-0.04em]">
             One ticket,
             <br />
@@ -385,6 +399,7 @@ function VisualPanel() {
             <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
             <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
           </div>
+
         </div>
       </div>
 
@@ -403,6 +418,7 @@ function VisualPanel() {
           animation: ticker 25s linear infinite;
         }
       `}</style>
+
     </div>
   );
 }

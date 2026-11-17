@@ -1,32 +1,33 @@
-// lib/auth-config.js
-// Centralized RBAC configuration — roles, route mappings, and redirects.
 
 export const ALLOWED_ROLES = [
   "super_admin",
-  "event-manager",
+  "event_manager",
   "cashier",
-  "checkin-staff",
+  "checkin_staff",
+  "user",
 ];
 
 export const ROLE_ROUTE_PREFIXES = {
   super_admin: "/superadmin",
-  "event-manager": "/event-manager",
+  event_manager: "/event-manager",
   cashier: "/cashier",
-  "checkin-staff": "/checkin-staff",
+  checkin_staff: "/checkin-staff",
+  user: "/user",
 };
 
 export const ROLE_DASHBOARDS = {
   super_admin: "/superadmin/dashboard",
-  "event-manager": "/event-manager/dashboard",
+  event_manager: "/event-manager/dashboard",
   cashier: "/cashier/dashboard",
-  "checkin-staff": "/checkin-staff/dashboard",
+  checkin_staff: "/checkin-staff/dashboard",
+  user: "/user/dashboard",
 };
 
 export const TOKEN_COOKIE_NAME = "smencore_token";
 
 export const PUBLIC_PATHS = ["/login", "/forbidden"];
 
-export const STATIC_ASSET_REGEX = /\.(.*)$/;
+export const STATIC_ASSET_REGEX = /\.[^/]+$/;
 
 export function isAllowedRole(role) {
   return ALLOWED_ROLES.includes(role);
@@ -38,6 +39,7 @@ export function getRoleFromPath(pathname) {
       return role;
     }
   }
+
   return null;
 }
 
