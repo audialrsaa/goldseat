@@ -3,7 +3,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import EventManagerSidebar from "../../components/event-manager/EventManagerSidebar";
 
 // ============================================================
 // API CONFIGURATION
@@ -773,47 +772,9 @@ export default function EventManagementPage() {
   // ============================================================
 
   return (
-    <div className="min-h-screen bg-[#09090f] text-white">
-      <div className="flex min-h-screen">
-        <EventManagerSidebar />
-
+    <div className="bg-[#09090f] text-white">
+      <div className="min-w-0">
         <main className="flex-1 min-w-0">
-          {/* TOP BAR */}
-
-          <header className="h-[72px] border-b border-white/[0.08] flex items-center justify-between px-7">
-            <div>
-              <div className="text-[16px] font-semibold">
-                Manajemen Event
-              </div>
-
-              <div className="text-[12px] text-gray-500 mt-1">
-                Super Admin / Manajemen Event
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="hidden md:flex items-center w-[330px] h-[40px] rounded-xl bg-[#14141d] border border-white/[0.08] px-4">
-                <span className="text-gray-500 mr-2">
-                  ⌕
-                </span>
-
-                <input
-                  placeholder="Cari event, order, atau user..."
-                  className="bg-transparent outline-none text-[13px] text-white placeholder:text-gray-600 w-full"
-                  readOnly
-                />
-              </div>
-
-              <div className="h-[40px] px-4 rounded-xl bg-[#14141d] border border-white/[0.08] flex items-center text-[13px] font-medium">
-                Super Admin
-              </div>
-
-              <div className="w-[40px] h-[40px] rounded-xl bg-[#6546e8] flex items-center justify-center font-semibold">
-                A
-              </div>
-            </div>
-          </header>
-
           {/* CONTENT */}
 
           <section className="p-7">

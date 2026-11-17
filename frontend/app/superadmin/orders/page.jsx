@@ -2,7 +2,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import SuperAdminSidebar from "../components/SuperAdminSidebar";
 import { getToken } from "@/lib/api";
 import {
   Search,
@@ -675,21 +674,10 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0b0c10] text-zinc-100">
-      <SuperAdminSidebar />
-
+    <div className="bg-[#0b0c10] text-zinc-100">
       <main className="min-w-0 flex-1">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 flex flex-col gap-4 border-b border-zinc-800 bg-[#0b0c10]/95 px-5 py-4 backdrop-blur md:flex-row md:items-center md:justify-between md:px-8">
-          <div>
-            <h1 className="text-lg font-semibold text-white">
-              Orders Monitoring
-            </h1>
-            <p className="mt-1 text-xs text-zinc-500">
-              Super Admin / Transactions / Orders
-            </p>
-          </div>
-
+        <div className="flex justify-end border-b border-zinc-800 bg-[#0b0c10] px-5 py-4 md:px-8">
           <div className="flex w-full items-center gap-2 rounded-lg border border-zinc-800 bg-[#121319] px-3 py-2.5 md:max-w-sm">
             <Search
               size={17}
@@ -714,7 +702,7 @@ export default function OrdersPage() {
               </button>
             )}
           </div>
-        </header>
+        </div>
 
         <div className="space-y-6 p-5 md:p-8">
           {/* Heading */}

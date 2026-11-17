@@ -15,7 +15,6 @@ import {
   ListChecks,
 } from "lucide-react";
 
-import EventManagerSidebar from "../../components/event-manager/EventManagerSidebar";
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
@@ -457,9 +456,7 @@ export default function SeatManagementPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 md:flex">
-      <EventManagerSidebar />
-
+    <div className="bg-slate-50">
       <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl space-y-6">
 

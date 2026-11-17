@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import SuperAdminSidebar from "../components/SuperAdminSidebar";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -837,14 +836,12 @@ export default function StaffUserPage() {
   // ============================================================
 
   return (
-    <div className="min-h-screen bg-[#09090f] text-white">
-      <div className="flex min-h-screen">
+    <div className="bg-[#09090f] text-white">
+      <div className="min-w-0">
 
         {/* ======================================================
             SIDEBAR
         ====================================================== */}
-
-        <SuperAdminSidebar />
 
         {/* ======================================================
             MAIN
@@ -856,21 +853,8 @@ export default function StaffUserPage() {
               TOP BAR
           ==================================================== */}
 
-          <header className="h-[72px] border-b border-white/[0.08] flex items-center justify-between px-7">
-
-            <div>
-              <div className="text-[16px] font-semibold">
-                Staff & User
-              </div>
-
-              <div className="text-[12px] text-gray-500 mt-1">
-                Super Admin / Staff & User
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-
-              <div className="hidden md:flex items-center w-[330px] h-[40px] rounded-xl bg-[#14141d] border border-white/[0.08] px-4">
+          <div className="flex justify-end border-b border-white/[0.08] px-4 py-4 sm:px-7">
+              <div className="flex h-[40px] w-full max-w-[330px] items-center rounded-xl border border-white/[0.08] bg-[#14141d] px-4">
 
                 <span className="text-gray-500 mr-2">
                   ⌕
@@ -888,24 +872,7 @@ export default function StaffUserPage() {
                 />
 
               </div>
-
-              <div className="h-[40px] px-4 rounded-xl bg-[#14141d] border border-white/[0.08] flex items-center text-[13px] font-medium">
-                Super Admin
-              </div>
-
-              <button
-                type="button"
-                className="w-[40px] h-[40px] rounded-xl border border-white/[0.08] bg-[#14141d] text-gray-400"
-              >
-                ♧
-              </button>
-
-              <div className="w-[40px] h-[40px] rounded-xl bg-[#6546e8] flex items-center justify-center font-semibold">
-                A
-              </div>
-
-            </div>
-          </header>
+          </div>
 
           {/* ====================================================
               CONTENT

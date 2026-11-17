@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import EventManagerSidebar from "../../components/event-manager/EventManagerSidebar";
 
 // =========================================================
 // CONFIG
@@ -435,9 +434,7 @@ export default function DashboardPage() {
   // =======================================================
 
   return (
-    <div className="flex min-h-screen bg-[#0b0a0f] text-white">
-
-      <EventManagerSidebar />
+    <div className="bg-[#0b0a0f] text-white">
 
       <main className="min-w-0 flex-1 overflow-y-auto px-8 py-8">
 

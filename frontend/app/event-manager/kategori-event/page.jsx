@@ -15,7 +15,6 @@ import {
   Tag,
 } from "lucide-react";
 
-import EventManagerSidebar from "../../components/event-manager/EventManagerSidebar";
 import { getToken } from "@/lib/api";
 
 // ============================================================
@@ -646,27 +645,14 @@ export default function KategoriEventPage() {
   // ==========================================================
 
   return (
-    <div className="flex min-h-screen bg-[#0b0e14] text-white">
-
-      <EventManagerSidebar />
+    <div className="bg-[#0b0e14] text-white">
 
       <div className="flex flex-1 flex-col">
 
         {/* HEADER */}
 
-        <header className="flex items-center justify-between gap-6 border-b border-zinc-800/80 px-8 py-5">
-
-          <div>
-            <h1 className="text-lg font-semibold text-white">
-              Kategori Event
-            </h1>
-
-            <p className="mt-0.5 text-xs text-zinc-500">
-              Super Admin / Kategori Event
-            </p>
-          </div>
-
-          <div className="relative max-w-md flex-1">
+        <div className="flex justify-end border-b border-zinc-800/80 px-4 py-4 sm:px-8 sm:py-5">
+          <div className="relative w-full max-w-md">
 
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
 
@@ -682,7 +668,7 @@ export default function KategoriEventPage() {
 
           </div>
 
-        </header>
+        </div>
 
         {/* CONTENT */}
 

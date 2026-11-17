@@ -17,7 +17,6 @@ import {
   Wallet,
 } from "lucide-react";
 
-import SuperAdminSidebar from "../components/SuperAdminSidebar";
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
@@ -459,52 +458,29 @@ export default function PaymentsPage() {
   );
 
   return (
-    <div className="flex min-h-screen min-w-0 bg-[#090a0e] text-white">
+    <div className="min-w-0 bg-[#090a0e] text-white">
       {/* Sidebar */}
-      <SuperAdminSidebar />
-
       {/* Konten utama */}
       <div className="min-w-0 flex-1">
         {/* Header */}
-        <header className="border-b border-zinc-800/80 px-5 py-6 sm:px-7 lg:px-9">
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <div className="mb-2 flex items-center gap-2 text-xs text-zinc-500">
-                <span>Super Admin</span>
-                <span>/</span>
-                <span>Transactions</span>
-                <span>/</span>
-                <span className="text-blue-400">
-                  Payments
-                </span>
-              </div>
+        <div className="flex flex-col justify-end gap-4 border-b border-zinc-800/80 px-5 py-4 sm:flex-row sm:items-center sm:px-7 lg:px-9">
+          <p className="mr-auto text-sm text-zinc-400">
+            Pantau transaksi pembayaran dan status pembayaran tiket.
+          </p>
 
-              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                Payments Monitoring
-              </h1>
-
-              <p className="mt-2 text-sm text-zinc-400">
-                Pantau transaksi pembayaran dan status
-                pembayaran tiket.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => fetchPayments(true)}
-              disabled={refreshing || loading}
-              className="inline-flex w-fit items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-[#15161c] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-blue-500/50 hover:bg-[#1b1d25] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw
-                size={16}
-                className={
-                  refreshing ? "animate-spin" : ""
-                }
-              />
-              {refreshing ? "Memuat..." : "Refresh Data"}
-            </button>
-          </div>
-        </header>
+          <button
+            type="button"
+            onClick={() => fetchPayments(true)}
+            disabled={refreshing || loading}
+            className="inline-flex w-fit items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-[#15161c] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-blue-500/50 hover:bg-[#1b1d25] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RefreshCw
+              size={16}
+              className={refreshing ? "animate-spin" : ""}
+            />
+            {refreshing ? "Memuat..." : "Refresh Data"}
+          </button>
+        </div>
 
         <main className="space-y-6 px-5 py-6 sm:px-7 lg:px-9">
           {/* Error */}

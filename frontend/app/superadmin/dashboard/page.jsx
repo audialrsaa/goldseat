@@ -3,13 +3,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Swal from "sweetalert2";
-
-import {
-  Search,
-  Bell,
-  LogOut,
-} from "lucide-react";
 
 import {
   fetchDashboardStats,
@@ -19,8 +12,6 @@ import {
 } from "@/lib/dashboard-api";
 
 import { useAuth } from "@/lib/auth-context";
-
-import SuperAdminSidebar from "../components/SuperAdminSidebar";
 
 const activityDotColor = {
   order: "bg-emerald-400",
@@ -81,34 +72,12 @@ function StatCard({
 }
 
 export default function SuperAdminDashboardPage() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // Konfirmasi sebelum logout
-  const handleLogout = async () => {
-    const result = await Swal.fire({
-      title: "Yakin ingin logout?",
-      text: "Kamu harus login kembali untuk mengakses dashboard.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Ya, Logout",
-      cancelButtonText: "Batal",
-      reverseButtons: true,
-      background: "#18181b",
-      color: "#f4f4f5",
-      confirmButtonColor: "#e11d48",
-      cancelButtonColor: "#3f3f46",
-      focusCancel: true,
-    });
-
-    if (result.isConfirmed) {
-      await logout();
-    }
-  };
 
   useEffect(() => {
     if (!authLoading && (!user || user.role !== "super_admin")) {
@@ -151,62 +120,8 @@ export default function SuperAdminDashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0a0a0e] text-zinc-100 font-sans">
-
-      {/* SIDEBAR */}
-      <SuperAdminSidebar />
-
-      {/* MAIN */}
-      <div className="flex min-w-0 flex-1 flex-col">
-
-        <header className="flex items-center justify-between gap-4 border-b border-zinc-800 px-6 py-4 md:px-8">
-
-          <div>
-            <div className="font-display text-[17px] font-semibold">
-              Dashboard
-            </div>
-
-            <div className="font-mono text-[11px] tracking-wide text-zinc-500">
-              Super Admin / Dashboard
-            </div>
-          </div>
-
-          <div className="hidden lg:flex w-80 items-center gap-2 rounded-[10px] border border-zinc-800 bg-zinc-950/60 px-3.5 py-2.5 text-[13px] text-zinc-500">
-            <Search size={15} />
-            Cari event, order, atau user...
-          </div>
-
-          <div className="flex items-center gap-3.5">
-
-            <select
-              className="rounded-[9px] border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-[13px] text-zinc-100"
-              defaultValue="Super Admin"
-            >
-              <option>Super Admin</option>
-            </select>
-
-            <Bell
-              size={18}
-              className="text-zinc-400"
-            />
-
-            {/* TOMBOL LOGOUT */}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 rounded-[9px] border border-zinc-800 bg-zinc-950/60 px-3 py-2 font-mono text-[13px] text-zinc-400 transition hover:border-rose-800 hover:text-rose-400"
-              title="Logout"
-            >
-              <LogOut size={14} />
-            </button>
-
-            <div className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] bg-gradient-to-br from-violet-400 to-violet-600 text-[13px] font-bold">
-              A
-            </div>
-
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto px-6 pb-10 pt-7 md:px-8">
+    <div className="bg-[#0a0a0e] font-sans text-zinc-100">
+        <main className="px-6 pb-10 pt-7 md:px-8">
 
           <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
 
@@ -437,7 +352,6 @@ export default function SuperAdminDashboardPage() {
 
           </div>
         </main>
-      </div>
     </div>
   );
 }

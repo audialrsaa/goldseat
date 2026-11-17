@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, X, Loader2, ChevronDown, ArrowUpRight } from "lucide-react";
 
-import SidebarSuperAdmin from "../components/SuperAdminSidebar";
 import { getToken } from "@/lib/api";
 
 // ============================================================
@@ -645,18 +644,11 @@ export default function RefundManagementPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#0b0e14] text-white">
-      <SidebarSuperAdmin active="refund" />
-
+    <div className="bg-[#0b0e14] text-white">
       <div className="flex-1 flex flex-col">
         {/* HEADER */}
-        <header className="flex items-center justify-between gap-6 px-8 py-5 border-b border-zinc-800/80">
-          <div>
-            <h1 className="text-lg font-semibold text-white">Refund</h1>
-            <p className="text-xs text-zinc-500 mt-0.5">Super Admin / Refund</p>
-          </div>
-
-          <div className="relative flex-1 max-w-md">
+        <div className="flex justify-end border-b border-zinc-800/80 px-4 py-4 sm:px-8 sm:py-5">
+          <div className="relative w-full max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               type="text"
@@ -664,7 +656,7 @@ export default function RefundManagementPage() {
               className="w-full rounded-lg bg-[#12151c] border border-zinc-800 pl-9 pr-3 py-2 text-sm text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
             />
           </div>
-        </header>
+        </div>
 
         {/* CONTENT */}
         <main className="flex-1 px-8 py-7">

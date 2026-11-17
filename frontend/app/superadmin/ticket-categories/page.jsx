@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, RefreshCw, Download, AlertTriangle } from "lucide-react";
 
-import SuperAdminSidebar from "../components/SuperAdminSidebar";
 
 // Aman dipakai baik env berisi "http://localhost:5000" maupun "http://localhost:5000/api"
 const API_URL =
@@ -233,21 +232,10 @@ export default function TicketCategoriesPage() {
     "rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-[13px] text-zinc-200 outline-none focus:border-violet-400/50";
 
   return (
-    <div className="flex min-h-screen bg-[#07070b] text-zinc-100">
-      <SuperAdminSidebar />
-
+    <div className="bg-[#07070b] text-zinc-100">
       <div className="flex min-w-0 flex-1 flex-col">
         {/* TOPBAR */}
-        <header className="flex items-center justify-between gap-4 border-b border-zinc-800 px-8 py-4">
-          <div className="leading-tight">
-            <div className="font-display text-lg font-semibold text-white">
-              Ticket Categories
-            </div>
-            <div className="font-mono text-[11px] tracking-wide text-zinc-500">
-              Super Admin / Ticketing / Ticket Categories
-            </div>
-          </div>
-
+        <div className="flex justify-end border-b border-zinc-800 px-4 py-4 sm:px-8">
           <div className="relative hidden w-full max-w-md lg:block">
             <Search
               size={15}
@@ -261,15 +249,7 @@ export default function TicketCategoriesPage() {
             />
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="rounded-lg border border-zinc-800 px-3 py-2 font-mono text-[13px] text-zinc-200">
-              Super Admin
-            </span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500 text-sm font-bold text-white">
-              A
-            </div>
-          </div>
-        </header>
+        </div>
 
         <main className="flex-1 px-8 py-8">
           {/* HEADING */}
