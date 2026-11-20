@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   ListChecks,
 } from "lucide-react";
+import SeatMap from "@/components/event-manager/SeatMap";
 
 
 const API_BASE_URL = (
@@ -32,17 +33,14 @@ const STATUS_CONFIG = {
   available: {
     label: "Tersedia",
     color: "bg-emerald-100 border-emerald-300 text-emerald-700",
-    icon: "bg-emerald-500",
   },
   locked: {
     label: "Terkunci",
     color: "bg-amber-100 border-amber-300 text-amber-700",
-    icon: "bg-amber-500",
   },
   booked: {
-    label: "Booked",
+    label: "Terjual",
     color: "bg-red-100 border-red-300 text-red-700",
-    icon: "bg-red-500",
   },
 };
 
@@ -90,6 +88,8 @@ function getCategoryPrefix(name) {
 
 function generateSeatCodes(categoryName, stock, existingSeats = []) {
   const prefix = getCategoryPrefix(categoryName);
+  const capacity = Math.max(0, Math.floor(Number(stock) || 0));
+  const remaining = Math.max(capacity - existingSeats.length, 0);
 
   const existingCodes = new Set(
     existingSeats.map((seat) => seat.seat_code)
@@ -97,7 +97,11 @@ function generateSeatCodes(categoryName, stock, existingSeats = []) {
 
   const codes = [];
 
-  for (let number = 1; number <= Number(stock); number++) {
+  for (
+    let number = 1;
+    number <= capacity && codes.length < remaining;
+    number++
+  ) {
     const code = `${prefix}-A${String(number).padStart(3, "0")}`;
 
     if (!existingCodes.has(code)) {
@@ -137,6 +141,8 @@ export default function SeatManagementPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [generatingId, setGeneratingId] = useState(null);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const generationInProgress =
+    generatingId !== null || generatingAll;
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -369,25 +375,21 @@ export default function SeatManagementPage() {
     }
   }
 
-  async function generateCategorySeats(category) {
-    const currentSeats = seatCounts[category.id]?.seats || [];
+  function getCategorySeatPlan(category) {
+    const existingSeats = seatCounts[category.id]?.seats || [];
+    const stock = Math.max(0, Math.floor(Number(category.stock) || 0));
 
-    const seatCodes = generateSeatCodes(
-      category.name,
-      category.stock,
-      currentSeats
-    );
+    return {
+      seatCodes: generateSeatCodes(category.name, stock, existingSeats),
+      remainingStock: Math.max(stock - existingSeats.length, 0),
+    };
+  }
 
-    if (seatCodes.length === 0) {
-      return {
-        created: 0,
-        message: `${category.name}: seluruh kursi sudah dibuat.`,
-      };
-    }
-
+  async function generateCategorySeats(category, seatCodes) {
+    const headers = getAuthHeaders();
     const res = await fetch(`${API_BASE_URL}/seats/bulk`, {
       method: "POST",
-      headers: getAuthHeaders(),
+      headers,
       body: JSON.stringify({
         ticket_category_id: category.id,
         seat_codes: seatCodes,
@@ -395,37 +397,99 @@ export default function SeatManagementPage() {
     });
 
     const response = await handleResponse(res);
+    const result = response?.data;
+
+    if (
+      !Number.isInteger(result?.created) ||
+      result.created !== seatCodes.length ||
+      !Number.isInteger(result?.remaining_stock)
+    ) {
+      throw new Error("Response generate kursi dari server tidak valid.");
+    }
 
     return {
-      created: seatCodes.length,
-      message:
-        response.message ||
-        `${seatCodes.length} kursi ${category.name} berhasil dibuat.`,
+      created: result.created,
+      remainingStock: result.remaining_stock,
     };
   }
 
+  async function refreshSeatCountsAfterGeneration() {
+    try {
+      await loadSeatCounts(categories);
+    } catch (err) {
+      const message = err.message || "Gagal memuat ulang daftar kursi.";
+      setError((currentError) =>
+        currentError ? `${currentError} ${message}` : message
+      );
+    }
+  }
+
   async function handleGenerateOne(category) {
+    if (generationInProgress) return;
+
+    const plan = getCategorySeatPlan(category);
+
+    if (plan.seatCodes.length === 0) {
+      setError("");
+      setSuccess(`${category.name}: stok kursi sudah penuh.`);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Kategori: ${category.name}\n` +
+        `Kursi yang akan dibuat: ${plan.seatCodes.length}\n` +
+        `Sisa stok saat ini: ${plan.remainingStock}\n\nLanjutkan?`
+    );
+
+    if (!confirmed) return;
+
     try {
       setError("");
       setSuccess("");
       setGeneratingId(category.id);
 
-      const result = await generateCategorySeats(category);
-
-      await loadSeatCounts(categories);
-      setSuccess(result.message);
+      const result = await generateCategorySeats(category, plan.seatCodes);
+      setSuccess(
+        `${category.name}: ${result.created} kursi berhasil dibuat. ` +
+          `Sisa stok: ${result.remainingStock}.`
+      );
     } catch (err) {
       setError(err.message || "Gagal membuat kursi.");
     } finally {
+      await refreshSeatCountsAfterGeneration();
       setGeneratingId(null);
     }
   }
 
   async function handleGenerateAll() {
-    if (!categories.length) return;
+    if (!categories.length || generationInProgress) return;
+
+    const plans = categories.map((category) => ({
+      category,
+      ...getCategorySeatPlan(category),
+    }));
+    const plansToGenerate = plans.filter(
+      (plan) => plan.seatCodes.length > 0
+    );
+    const totalToCreate = plansToGenerate.reduce(
+      (total, plan) => total + plan.seatCodes.length,
+      0
+    );
+    const totalRemainingStock = plansToGenerate.reduce(
+      (total, plan) => total + plan.remainingStock,
+      0
+    );
+
+    if (totalToCreate === 0) {
+      setError("");
+      setSuccess("Seluruh kursi pada kategori yang dipilih sudah dibuat.");
+      return;
+    }
 
     const confirmed = window.confirm(
-      "Generate semua kursi untuk seluruh kategori pada event ini?"
+      `Jumlah kursi yang akan dibuat: ${totalToCreate}\n` +
+        `Sisa stok saat ini: ${totalRemainingStock}\n\n` +
+        "Lanjutkan generate kursi untuk kategori yang masih memiliki stok?"
     );
 
     if (!confirmed) return;
@@ -435,22 +499,39 @@ export default function SeatManagementPage() {
       setSuccess("");
       setGeneratingAll(true);
 
-      const messages = [];
+      let totalCreated = 0;
+      const failures = [];
 
-      for (const category of categories) {
-        const result = await generateCategorySeats(category);
-        messages.push(result.message);
+      for (const plan of plansToGenerate) {
+        try {
+          const result = await generateCategorySeats(
+            plan.category,
+            plan.seatCodes
+          );
+          totalCreated += result.created;
+        } catch (err) {
+          failures.push(
+            `${plan.category.name}: ${
+              err.message || "Gagal membuat kursi."
+            }`
+          );
+        }
       }
 
-      await loadSeatCounts(categories);
-
       setSuccess(
-        messages.length ? messages.join(" ") : "Proses generate selesai."
+        totalCreated > 0
+          ? `${totalCreated} kursi berhasil dibuat dari ${totalToCreate} yang direncanakan.`
+          : ""
+      );
+      setError(
+        failures.length > 0
+          ? `${totalCreated} kursi berhasil dibuat. ${failures.join(" ")}`
+          : ""
       );
     } catch (err) {
       setError(err.message || "Gagal melakukan generate kursi.");
-      await loadSeatCounts(categories);
     } finally {
+      await refreshSeatCountsAfterGeneration();
       setGeneratingAll(false);
     }
   }
@@ -477,7 +558,7 @@ export default function SeatManagementPage() {
             <button
               type="button"
               onClick={() => loadPage(true)}
-              disabled={refreshing || loading}
+              disabled={refreshing || loading || generationInProgress}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100 disabled:opacity-50"
             >
               <RefreshCw
@@ -518,7 +599,9 @@ export default function SeatManagementPage() {
               <select
                 value={selectedEventId}
                 onChange={(e) => handleEventChange(e.target.value)}
-                disabled={loading || events.length === 0}
+                disabled={
+                  loading || events.length === 0 || generationInProgress
+                }
                 className="w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-10 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
               >
                 <option value="">Pilih event</option>
@@ -765,7 +848,7 @@ export default function SeatManagementPage() {
                         <button
                           type="button"
                           onClick={() => handleGenerateOne(category)}
-                          disabled={isGenerating || remaining === 0}
+                          disabled={generationInProgress || remaining === 0}
                           className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {isGenerating ? (
@@ -874,7 +957,7 @@ export default function SeatManagementPage() {
 
                 <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
                   <p className="text-xs font-medium text-red-700">
-                    Booked
+                    Terjual
                   </p>
                   <p className="mt-2 text-2xl font-bold text-red-800">
                     {statusSummary.booked}
@@ -882,21 +965,17 @@ export default function SeatManagementPage() {
                 </div>
               </section>
 
-              {/* SEAT MAP */}
-              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                  <div>
-                    <h2 className="text-lg font-bold text-slate-900">
-                      Denah Kursi
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {selectedCategory?.name || "Kategori"} ·{" "}
-                      {selectedCategory
-                        ? formatRupiah(selectedCategory.price)
-                        : ""}
-                    </p>
-                  </div>
-
+              <SeatMap
+                areaName={selectedCategory?.name}
+                subtitle={
+                  selectedCategory
+                    ? formatRupiah(selectedCategory.price)
+                    : ""
+                }
+                seats={filteredSeats}
+                loading={loading}
+                theme="light"
+                headerAction={
                   <button
                     type="button"
                     onClick={() => loadPage(true)}
@@ -909,86 +988,27 @@ export default function SeatManagementPage() {
                     />
                     Refresh Denah
                   </button>
-                </div>
-
-                {/* LEGEND */}
-                <div className="mt-5 flex flex-wrap gap-x-5 gap-y-3 border-b border-slate-100 pb-5">
-                  {Object.entries(STATUS_CONFIG).map(([status, config]) => (
-                    <div key={status} className="flex items-center gap-2">
-                      <span
-                        className={`h-3.5 w-3.5 rounded ${config.icon}`}
-                      />
-                      <span className="text-xs font-medium text-slate-600">
-                        {config.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* STAGE */}
-                <div className="mx-auto mb-8 mt-8 max-w-2xl">
-                  <div className="rounded-t-[50%] border-t-4 border-indigo-400 bg-indigo-50 px-5 py-4 text-center">
-                    <p className="text-sm font-bold tracking-[0.25em] text-indigo-700">
-                      STAGE
-                    </p>
-                  </div>
-                </div>
-
-                {/* SEAT GRID */}
-                {filteredSeats.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-300 py-12 text-center">
-                    <Armchair
-                      size={34}
-                      className="mx-auto text-slate-300"
-                    />
-                    <p className="mt-3 font-semibold text-slate-700">
-                      {selectedSeats.length === 0
-                        ? "Belum ada kursi pada kategori ini"
-                        : "Kursi tidak ditemukan"}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {selectedSeats.length === 0
-                        ? "Generate kursi terlebih dahulu melalui tab Generate Seat."
-                        : "Coba gunakan kata kunci pencarian lain."}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto pb-3">
-                    <div className="mx-auto grid w-max grid-cols-5 gap-2 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12">
-                      {filteredSeats.map((seat) => {
-                        const config = STATUS_CONFIG[seat.status] || {
-                          label: "Unknown",
-                          color:
-                            "bg-slate-100 border-slate-300 text-slate-600",
-                        };
-
-                        return (
-                          <div
-                            key={seat.id}
-                            title={`${seat.seat_code} - ${config.label}`}
-                            className={`flex h-[62px] w-[62px] flex-col items-center justify-center rounded-xl border transition ${config.color}`}
-                          >
-                            <Armchair size={20} />
-                            <span className="mt-1 text-[9px] font-bold">
-                              {seat.seat_code}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
-                  <span>
-                    Menampilkan {filteredSeats.length} dari{" "}
-                    {selectedSeats.length} kursi
-                  </span>
-                  <span>
-                    Category ID: {selectedCategoryId || "-"}
-                  </span>
-                </div>
-              </section>
+                }
+                emptyMessage={
+                  selectedSeats.length === 0
+                    ? "Belum ada kursi pada kategori ini."
+                    : "Kursi tidak ditemukan."
+                }
+                emptyHint={
+                  selectedSeats.length === 0
+                    ? "Generate kursi terlebih dahulu melalui tab Generate Seat."
+                    : "Coba gunakan kata kunci pencarian lain."
+                }
+                footer={
+                  <>
+                    <span>
+                      Menampilkan {filteredSeats.length} dari{" "}
+                      {selectedSeats.length} kursi
+                    </span>
+                    <span>Category ID: {selectedCategoryId || "-"}</span>
+                  </>
+                }
+              />
 
               {/* SEAT TABLE */}
               <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

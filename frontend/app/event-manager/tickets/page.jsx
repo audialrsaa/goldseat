@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   ChevronDown,
   Plus,
@@ -8,11 +8,10 @@ import {
   Trash2,
   X,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 
 import { getToken } from "@/lib/api";
+import SeatMap from "@/components/event-manager/SeatMap";
 
 // ============================================================
 // KONFIGURASI API
@@ -452,92 +451,6 @@ function SkeletonRow() {
 }
 
 // ============================================================
-// DENAH KURSI (SEAT MAP)
-// ============================================================
-
-const SEAT_STATUS_META = {
-  available: { label: "Tersedia", dot: "bg-emerald-500", cell: "bg-emerald-500/70 hover:bg-emerald-500" },
-  locked: { label: "Terkunci", dot: "bg-amber-500", cell: "bg-amber-500/70 hover:bg-amber-500" },
-  booked: { label: "Terisi", dot: "bg-zinc-600", cell: "bg-zinc-700 hover:bg-zinc-600" },
-};
-
-const SEATS_PER_ROW = 15;
-
-function SeatMap({ category, seats, loading }) {
-  const rows = useMemo(() => {
-    const sorted = [...seats].sort((a, b) =>
-      a.seat_code.localeCompare(b.seat_code, undefined, { numeric: true })
-    );
-    const chunks = [];
-    for (let i = 0; i < sorted.length; i += SEATS_PER_ROW) {
-      chunks.push(sorted.slice(i, i + SEATS_PER_ROW));
-    }
-    return chunks;
-  }, [seats]);
-
-  return (
-    <div className="rounded-2xl border border-zinc-800/80 bg-[#12151c] p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold text-white">Denah Kursi</h3>
-        {category && (
-          <span className="text-xs text-zinc-500">{category.name}</span>
-        )}
-      </div>
-
-      <div className="flex items-center justify-center gap-3 rounded-xl bg-[#0b0e14] border border-zinc-800 py-2.5 mb-5 text-xs tracking-widest text-zinc-500">
-        <ChevronLeft className="w-4 h-4" />
-        PANGGUNG
-        <ChevronRight className="w-4 h-4" />
-      </div>
-
-      <div className="flex items-center gap-5 mb-5">
-        {Object.entries(SEAT_STATUS_META).map(([key, meta]) => (
-          <div key={key} className="flex items-center gap-1.5 text-xs text-zinc-400">
-            <span className={`w-2.5 h-2.5 rounded-sm ${meta.dot}`} />
-            {meta.label}
-          </div>
-        ))}
-      </div>
-
-      {!category && (
-        <p className="text-sm text-zinc-500 py-8 text-center">
-          Pilih kategori tiket untuk melihat denah kursinya.
-        </p>
-      )}
-
-      {category && loading && (
-        <p className="text-sm text-zinc-500 py-8 text-center">Memuat denah kursi...</p>
-      )}
-
-      {category && !loading && seats.length === 0 && (
-        <p className="text-sm text-zinc-500 py-8 text-center">
-          Kategori ini belum memiliki data kursi (kemungkinan tiket tanpa nomor kursi).
-        </p>
-      )}
-
-      {category && !loading && seats.length > 0 && (
-        <div className="flex flex-col items-center gap-1.5 overflow-x-auto">
-          {rows.map((row, idx) => (
-            <div key={idx} className="flex gap-1.5">
-              {row.map((seat) => {
-                const meta = SEAT_STATUS_META[seat.status] || SEAT_STATUS_META.available;
-                return (
-                  <div
-                    key={seat.id}
-                    title={`${seat.seat_code} — ${meta.label}`}
-                    className={`w-6 h-6 rounded-sm cursor-default transition-colors ${meta.cell}`}
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
 // HALAMAN UTAMA
 // ============================================================
 
@@ -896,7 +809,12 @@ export default function TiketKursiPage() {
           </div>
 
           {/* DENAH KURSI */}
-          <SeatMap category={selectedCategory} seats={seats} loading={seatsLoading} />
+          <SeatMap
+            areaName={selectedCategory?.name}
+            seats={seats}
+            loading={seatsLoading}
+            theme="dark"
+          />
         </main>
       </div>
 
